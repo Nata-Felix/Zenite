@@ -14,7 +14,7 @@ const home = join(profile, 'home');
 for (const dir of [project, home, join(home, '.agents/skills'), join(profile, 'workspaces'), join(profile, 'notes'), join(profile, 'tables'), join(profile, 'media')]) mkdirSync(dir, { recursive: true });
 process.env.ZENITE_DATA_DIR = profile;
 require('node:os').homedir = () => home;
-app.commandLine.appendSwitch('force-device-scale-factor', '1');
+app.commandLine.appendSwitch('force-device-scale-factor', process.env.ZENITE_FILM_SCALE || '1');
 writeFileSync(join(project, 'README.md'), '# Aurora\n\nProjeto fictício para demonstrar o Zênite.\n');
 writeFileSync(join(project, '.gitignore'), 'relatorio-local.json\n');
 writeFileSync(join(project, 'interface.txt'), 'Versão original do projeto Aurora.\n');
@@ -163,7 +163,7 @@ app.once('browser-window-created', (_event, window) => {
     win.showInactive();
     writeFileSync(join(out, 'ready.json'), JSON.stringify({ apiPort, profile, project, pid: process.pid }));
     console.log('STUDIO READY');
-    if (process.env.ZENITE_FILM_AUTORUN === '1') require(process.env.ZENITE_FILM_PHASE==='giant'?'./take-giant.cjs':process.env.ZENITE_FILM_PHASE==='result'?'./take-result.cjs':process.env.ZENITE_FILM_PHASE==='completion'?'./take-completion.cjs':process.env.ZENITE_FILM_PHASE==='agents'?'./take-agents.cjs':'./take.cjs')({ win, out, profile, project, api: () => `http://127.0.0.1:${apiPort}` }).catch(error => { console.error(error.stack); writeFileSync(join(out, 'take-error.txt'), error.stack); });
+    if (process.env.ZENITE_FILM_AUTORUN === '1') require(process.env.ZENITE_FILM_PHASE==='spot'?'./take-spot.cjs':process.env.ZENITE_FILM_PHASE==='giant'?'./take-giant.cjs':process.env.ZENITE_FILM_PHASE==='result'?'./take-result.cjs':process.env.ZENITE_FILM_PHASE==='completion'?'./take-completion.cjs':process.env.ZENITE_FILM_PHASE==='agents'?'./take-agents.cjs':'./take.cjs')({ win, out, profile, project, api: () => `http://127.0.0.1:${apiPort}` }).catch(error => { console.error(error.stack); writeFileSync(join(out, 'take-error.txt'), error.stack); });
   });
 });
 app.on('will-quit', () => { api.close(); if (active) { clearInterval(active.timer); active.process.stdin.end(); } });
