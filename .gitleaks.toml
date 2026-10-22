@@ -1,0 +1,13 @@
+title = "Zênite — verificação de segredos"
+
+[extend]
+useDefault = true
+
+# Falso positivo confirmado no histórico: é um atalho de teclado, não uma API key.
+# A exceção exige o arquivo E a linha exata; não libera outras linhas ou testes.
+[[allowlists]]
+description = "Atalho Ctrl+Shift+Tab do canvas"
+condition = "AND"
+paths = ['''^src/renderer/shortcuts\.ts$''']
+regexTarget = "line"
+regexes = ['''^\s*\{ id: "prev", label: "Elemento anterior", group: "Navegação", keys: "Ctrl\+Shift\+Tab", command: "prev-element" \},\s*$''']

@@ -1,0 +1,10 @@
+.galaxy-archive-dialog { max-height: calc(100vh - 48px); overflow: auto; }
+.galaxy-archive-dialog h2 { display: flex; align-items: center; gap: 10px; }
+.galaxy-archive-options { display: flex; flex-direction: column; gap: 10px; margin: 18px 0; }
+.galaxy-archive-dialog label.galaxy-archive-option { display: flex; flex-direction: row; align-items: flex-start; gap: 12px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: 9px; cursor: pointer; }
+.galaxy-archive-dialog .galaxy-archive-option input { width: 16px; height: 16px; margin: 3px 0 0; padding: 0; accent-color: var(--accent); flex: none; }
+.galaxy-archive-option span { display: flex; flex-direction: column; gap: 5px; }
+.galaxy-archive-option small { line-height: 1.5; color: var(--muted); font-weight: 400; }
+.galaxy-archive-option:has(input:disabled) { opacity: .65; cursor: default; }
+.galaxy-archive-option:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.workspace-list li:focus-within .workspace-actions { display: flex; }

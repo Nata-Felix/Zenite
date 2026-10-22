@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Instalador visual: leva o setup do electron-builder dentro e o roda em modo silencioso.
+       Compilado por scripts/build/build-installer-ui.mjs, que passa SetupExe e gera build-info.txt. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Zenite-Instalador</AssemblyName>
+    <RootNamespace>ZeniteInstaller</RootNamespace>
+    <ApplicationIcon>..\build\icon.ico</ApplicationIcon>
+    <Product>Zênite</Product>
+    <AssemblyTitle>Instalador do Zênite</AssemblyTitle>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="..\build\icon.png" Link="icon.png" />
+    <EmbeddedResource Include="build-info.txt" LogicalName="build-info.txt" />
+    <EmbeddedResource Include="$(SetupExe)" LogicalName="setup.exe" Condition="'$(SetupExe)' != ''" />
+  </ItemGroup>
+</Project>

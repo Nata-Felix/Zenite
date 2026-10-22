@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b1f4b"/>
+      <stop offset="1" stop-color="#090a14"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.42" cy="0.38" r="0.62">
+      <stop offset="0" stop-color="#fff6d6"/>
+      <stop offset="0.5" stop-color="#ffc85a"/>
+      <stop offset="1" stop-color="#f08c00"/>
+    </radialGradient>
+    <clipPath id="tile"><rect width="32" height="32" rx="7"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="32" height="32" fill="url(#sky)"/>
+    <circle cx="16" cy="47" r="25" fill="#3f49c9"/>
+    <circle cx="16" cy="47" r="25" fill="none" stroke="#b9c3ff" stroke-width="1.4"/>
+    <ellipse cx="16" cy="10.5" rx="10.5" ry="3.2" transform="rotate(-18 16 10.5)" fill="none" stroke="#a99bff" stroke-width="1.4"/>
+    <circle cx="16" cy="10.5" r="5" fill="url(#sun)"/>
+  </g>
+</svg>
