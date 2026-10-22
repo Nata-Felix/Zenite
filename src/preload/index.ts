@@ -85,6 +85,13 @@ const api: OApi = {
     shown: (id) => ipcRenderer.send("dialog:shown", id),
     answer: (id, ok, checked) => ipcRenderer.send("dialog:answer", id, ok, checked),
   },
+  composer: {
+    targets: () => ipcRenderer.invoke("composer:targets"),
+    pick: () => ipcRenderer.invoke("composer:pick"),
+    saveImage: (name, bytes) => ipcRenderer.invoke("composer:save-image", name, bytes),
+    send: (targets, text, files) => ipcRenderer.invoke("composer:send", targets, text, files),
+    dictate: () => ipcRenderer.invoke("composer:dictate"),
+  },
   attention: {
     get: () => ipcRenderer.invoke("attention:get"),
     onChanged: (listener) => subscribe("attention:changed", listener),

@@ -202,6 +202,16 @@ export interface FlowStatus {
   at: number;
 }
 
+/** Um terminal que pode receber mensagens da caixa de mensagem (Ctrl+K). */
+export interface ComposerTarget {
+  id: string;
+  title: string;
+  agent: "codex" | "claude" | "antigravity" | "grok" | "shell" | "other";
+  running: boolean;
+  sun: boolean;
+  status?: TaskStatus;
+}
+
 /** "Enquanto você esteve fora": o que cada terminal, o Sol, os astros e o Git fizeram. */
 export interface AwayTerminal {
   id: string;
@@ -793,6 +803,15 @@ export interface OApi {
     /** A interface recebeu a pergunta (sem isso, o app usa a caixa do Windows). */
     shown(id: number): void;
     answer(id: number, ok: boolean, checked: boolean): void;
+  };
+  /** Caixa de mensagem (Ctrl+K): texto e anexos direto no CLI escolhido. */
+  composer: {
+    targets(): Promise<ComposerTarget[]>;
+    pick(): Promise<string[]>;
+    saveImage(name: string, bytes: Uint8Array): Promise<string>;
+    send(targets: string[], text: string, files: string[]): Promise<{ ok: boolean; errors: string[] }>;
+    /** Abre o ditado do Windows (Win+H) para falar em vez de digitar. */
+    dictate(): Promise<void>;
   };
   attention: {
     get(): Promise<Record<string, AttentionInfo>>;

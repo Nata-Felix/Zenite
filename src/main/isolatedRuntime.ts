@@ -1,7 +1,7 @@
 import { execFile, execFileSync, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { CreatePtyRequest } from "../shared/types";
 import { wingetPath } from "./codeRuntime";
 import { readPathNow } from "./freshPath";
@@ -190,6 +190,16 @@ if (!/^\s*cli_auth_credentials_store\s*=/m.test(currentConfig)) fs.writeFileSync
   }
   close(id: string): void { const name = this.active.get(id); if (name) this.stop(id, name); }
   has(id: string): boolean { return this.active.has(id); }
+  /** Copia um arquivo do computador para /exchange/anexos do contêiner do terminal e devolve o caminho lá dentro. */
+  async copyIn(id: string, file: string): Promise<string> {
+    const name = this.active.get(id);
+    if (!name) throw new Error("O terminal isolado não está rodando.");
+    const target = `/exchange/anexos/${basename(file)}`;
+    const run = (args: string[]) => new Promise<void>((resolve, reject) => execFile("docker", args, { windowsHide: true, timeout: 60000 }, (error, _out, stderr) => error ? reject(new Error(String(stderr).trim() || error.message)) : resolve()));
+    await run(["exec", "--user", "1000:1000", name, "mkdir", "-p", "/exchange/anexos"]);
+    await run(["cp", file, `${name}:${target}`]);
+    return target;
+  }
   closeAll(): void { for (const id of [...this.active.keys()]) this.close(id); }
   async loginStatus(account: string, agent: string): Promise<boolean> {
     const volume = profileVolume(account, agent);

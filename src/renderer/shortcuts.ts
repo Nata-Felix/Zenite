@@ -13,10 +13,13 @@ export interface Shortcut {
   group: "Geral" | "Navegação" | "Canvas" | "Criar";
   keys: string;
   command: Command;
+  /** Vale também dentro do terminal (rouba a combinação do CLI). */
+  everywhere?: boolean;
 }
 
 export const SHORTCUTS: Shortcut[] = [
   { id: "palette", label: "Busca rápida", group: "Geral", keys: "Ctrl+Shift+P", command: "open-palette" },
+  { id: "composer", label: "Caixa de mensagem para os agentes", group: "Geral", keys: "Ctrl+K", command: "open-composer", everywhere: true },
   { id: "palette-alt", label: "Busca rápida (fora do terminal)", group: "Geral", keys: "Ctrl+P", command: "open-palette" },
   { id: "settings", label: "Abrir configurações", group: "Geral", keys: "Ctrl+,", command: "open-settings" },
   { id: "sidebar", label: "Recolher ou expandir a barra lateral", group: "Geral", keys: "Ctrl+Shift+B", command: "toggle-sidebar" },

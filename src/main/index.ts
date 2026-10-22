@@ -11,6 +11,7 @@ import { RoleStore, SolLog } from "./solTools";
 import { plural } from "../shared/plural";
 import { AttentionTracker, type Attention } from "./attention";
 import { AwayLog, hasNews } from "./awaySummary";
+import { composeSteps, MAX_ATTACHMENT, stashAttachment, waitingForChoice } from "./composer";
 import { Accounts } from "./accounts";
 import { CanvasAccess } from "./canvasAccess";
 import { installDocker, IsolatedRuntime } from "./isolatedRuntime";
@@ -49,7 +50,7 @@ import { ZeniteBrowser } from "./zeniteBrowser";
 import { killTrees, killZeniteCodex, killZeniteCodexOf } from "./terminalCleanup";
 import { missingFrom, readPathNow, refreshPath } from "./freshPath";
 import { programOf, withPermissions, withSolAccess } from "./fullAccess";
-import { agentOf, looksBusy } from "./agentControl";
+import { agentOf, looksBusy, parseMenu } from "./agentControl";
 import { canGrantSolAccess, flowPermission, grantCodexSolAccess, scriptPermission, solWelcomeMessage } from "./solAccess";
 import { FlowWaits } from "./flowWaits";
 import { SunAuthority } from "./sunAuthority";
@@ -630,6 +631,72 @@ app.whenReady().then(async () => {
   ipcMain.handle("isolation:status", () => isolatedRuntime.status());
   ipcMain.handle("isolation:prepare", () => isolatedRuntime.prepare());
   ipcMain.handle("isolation:install-docker", (e) => { requireMainUI(e); return installDocker(); });
+
+  // Caixa de mensagem (Ctrl+K): texto e anexos direto no CLI escolhido, sem passar pelo canvas.
+  const attachmentsDir = join(dataDir, "anexos");
+  const activePlace = () => {
+    const index = store.list();
+    const ws = index.workspaces.find((w) => w.id === index.activeId) ?? index.workspaces[0];
+    return store.places().find((p) => p.workspace.id === ws?.id && (p.universe?.id ?? null) === (ws?.activeUniverse ?? null));
+  };
+  ipcMain.handle("composer:targets", (e) => {
+    requireMainUI(e);
+    const place = activePlace();
+    const nodes = place ? store.loadCanvas(place.canvasId)?.nodes ?? [] : [];
+    return nodes.filter((n) => n.kind === "terminal" && n.terminal).map((n) => ({
+      id: n.id,
+      title: nodeTitle(n),
+      agent: agentOf(n.terminal!.command ?? "", n.terminal!.provider),
+      running: ptys.has(n.id),
+      sun: !!n.terminal!.sun,
+      status: lastTasks[n.id],
+    }));
+  });
+  ipcMain.handle("composer:pick", async (e) => {
+    requireMainUI(e);
+    const r = await dialog.showOpenDialog(win!, { title: "Anexar arquivos", properties: ["openFile", "multiSelections"] });
+    return r.canceled ? [] : r.filePaths;
+  });
+  ipcMain.handle("composer:save-image", (e, name: string, bytes: Uint8Array) => {
+    requireMainUI(e);
+    if (bytes.byteLength > MAX_ATTACHMENT) throw new Error("A imagem passa de 50 MB.");
+    mkdirSync(attachmentsDir, { recursive: true });
+    const ext = /\.(png|jpe?g|gif|webp|bmp)$/i.exec(name)?.[0] ?? ".png";
+    const file = join(attachmentsDir, `${Date.now()}-print${ext.toLowerCase()}`);
+    writeFileSync(file, Buffer.from(bytes));
+    return file;
+  });
+  // Microfone da caixa de mensagem: abre o ditado do Windows (Win+H), que escreve no campo em foco.
+  ipcMain.handle("composer:dictate", (e) => {
+    requireMainUI(e);
+    const script = "Add-Type -Namespace Z -Name K -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte k, byte s, uint f, UIntPtr e);'; [Z.K]::keybd_event(0x5B,0,0,[UIntPtr]::Zero); [Z.K]::keybd_event(0x48,0,0,[UIntPtr]::Zero); [Z.K]::keybd_event(0x48,0,2,[UIntPtr]::Zero); [Z.K]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)";
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, timeout: 10000 }, () => {});
+  });
+  ipcMain.handle("composer:send", async (e, targets: string[], text: string, files: string[]) => {
+    requireMainUI(e);
+    const errors: string[] = [];
+    let stashed: string[];
+    try { stashed = files.map((f) => f.startsWith(attachmentsDir) ? f : stashAttachment(attachmentsDir, f)); }
+    catch (error) { return { ok: false, errors: [(error as Error).message] }; }
+    const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    await Promise.all(targets.map(async (id) => {
+      const spec = terminalSpec(id);
+      const title = spec?.title ?? "Terminal";
+      try {
+        if (!spec || !ptys.has(id)) throw new Error(`"${title}" não está aberto.`);
+        const screen = (await ptys.snapshot(id, 40)) ?? "";
+        if (waitingForChoice(screen, !!parseMenu(screen))) throw new Error(`"${title}" está esperando uma resposta na tela (menu, termos ou permissão). Responda no terminal e envie de novo.`);
+        const paths = isolatedRuntime.has(id) ? await Promise.all(stashed.map((f) => isolatedRuntime.copyIn(id, f))) : stashed;
+        for (const step of composeSteps(agentOf(spec.command ?? "", spec.provider), text, paths)) {
+          if ("submit" in step) { await pause(600); ptys.write(id, "\r"); continue; }
+          // Colagem "entre colchetes": o CLI recebe o bloco inteiro e reconhece caminhos de imagem.
+          ptys.write(id, ptys.acceptsPaste(id) ? `\x1b[200~${step.paste}\x1b[201~` : step.paste.replace(/\s*\n+\s*/g, " "));
+          await pause(450);
+        }
+      } catch (error) { errors.push(`${title}: ${(error as Error).message}`); }
+    }));
+    return { ok: errors.length === 0, errors };
+  });
   ipcMain.handle("isolation:revoke", () => directAccess.revoke());
   ipcMain.handle("pty:runtime", (_e, id: string) => ({ isolated: isolatedRuntime.has(id), running: ptys.has(id) }));
 

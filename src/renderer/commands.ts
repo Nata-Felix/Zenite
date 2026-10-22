@@ -32,6 +32,7 @@ export type Command =
   | "toggle-zen"
   | "toggle-summary"
   | "open-palette"
+  | "open-composer"
   | `select-terminal:${number}`
   | "next-element"
   | "prev-element";
