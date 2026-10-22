@@ -68,12 +68,12 @@ export function autoLayout(boxes: Box[], edges: Link[], obstacles: Box[] = [], g
 
     const layers: Box[][] = [];
     for (const b of group) (layers[ranks.get(b.id)!] ??= []).push(b);
-    const columns = layers.filter((layer) => layer?.length);
+    const rankedColumns = layers.filter((layer) => layer?.length);
     // Ordena ramos pela posição dos vizinhos para reduzir linhas cruzadas.
     for (let pass = 0; pass < 4; pass++) {
       for (const direction of [1, -1]) {
-        const slots = new Map(columns.flatMap((col) => col.map((b, i) => [b.id, (i + 0.5) / col.length] as const)));
-        for (const col of direction === 1 ? columns : [...columns].reverse()) {
+        const slots = new Map(rankedColumns.flatMap((col) => col.map((b, i) => [b.id, (i + 0.5) / col.length] as const)));
+        for (const col of direction === 1 ? rankedColumns : [...rankedColumns].reverse()) {
           const score = (b: Box) => {
             const adjacent = [...neighbors.get(b.id)!].filter((id) => direction === 1 ? ranks.get(id)! < ranks.get(b.id)! : ranks.get(id)! > ranks.get(b.id)!);
             return adjacent.length ? adjacent.reduce((sum, id) => sum + slots.get(id)!, 0) / adjacent.length : slots.get(b.id)!;
@@ -85,6 +85,43 @@ export function autoLayout(boxes: Box[], edges: Link[], obstacles: Box[] = [], g
     }
 
     const heightOf = (col: Box[]) => col.reduce((h, b) => h + b.h, 0) + (col.length - 1) * ROW_GAP;
+    // Um hub pode ter dezenas de vizinhos na mesma etapa. Experimente alturas
+    // para dobrar essas colunas em blocos: o conjunto deve caber melhor numa tela
+    // horizontal, sem mudar a ordem das etapas ou separar ramos pequenos.
+    const tallest = Math.max(...rankedColumns.map(heightOf));
+    const minimum = Math.max(...group.map((b) => b.h));
+    const splitAt = (limit: number) => rankedColumns.flatMap((col) => {
+      if (col.length < 4 || heightOf(col) <= limit) return [col];
+      const chunks: Box[][] = [];
+      let chunk: Box[] = [];
+      let height = 0;
+      for (const b of col) {
+        if (chunk.length && height + ROW_GAP + b.h > limit) {
+          chunks.push(chunk);
+          chunk = [];
+          height = 0;
+        }
+        height += (chunk.length ? ROW_GAP : 0) + b.h;
+        chunk.push(b);
+      }
+      if (chunk.length) chunks.push(chunk);
+      return chunks;
+    });
+    const extent = (cols: Box[][]) => {
+      const width = cols.reduce((sum, col) => sum + Math.max(...col.map((b) => b.w)), 0) + (cols.length - 1) * COLUMN_GAP;
+      const height = Math.max(...cols.map(heightOf));
+      return { fit: Math.max(width / 1.6, height), area: width * height };
+    };
+    let columns = rankedColumns;
+    let best = extent(columns);
+    for (let step = 0; step < 32; step++) {
+      const candidate = splitAt(minimum + (tallest - minimum) * step / 32);
+      const score = extent(candidate);
+      if (score.fit < best.fit || (score.fit === best.fit && score.area < best.area)) {
+        columns = candidate;
+        best = score;
+      }
+    }
     const height = Math.max(...columns.map(heightOf));
     let x = left;
     for (const col of columns) {

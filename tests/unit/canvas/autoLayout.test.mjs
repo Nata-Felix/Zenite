@@ -86,3 +86,31 @@ test("muitas janelas com tamanhos variados continuam sem sobreposição", () => 
   const edges = boxes.slice(1).map((b, i) => link(boxes[Math.floor(i / 3)].id, b.id));
   disjoint(positioned(boxes, autoLayout(boxes, edges)));
 });
+
+test("hub com muitos vizinhos distribui as etapas em blocos de altura equilibrada", () => {
+  const boxes = [node("hub", 640, 400), node("fim", 400, 200)];
+  const edges = [link("hub", "fim")];
+  for (let i = 0; i < 24; i++) {
+    const id = `ramo-${String(i).padStart(2, "0")}`;
+    boxes.push(node(id, 320 + (i % 3) * 160, 180 + (i % 4) * 80));
+    edges.push(i < 8 ? link(id, "hub") : link("hub", id));
+  }
+  for (const gaps of [undefined, { column: 60, row: 24, group: 80 }]) {
+    const result = autoLayout(boxes, edges, [], gaps);
+    const placed = positioned(boxes, result);
+    disjoint(placed);
+    const width = Math.max(...placed.map(b => b.x + b.w)) - 40;
+    const height = Math.max(...placed.map(b => b.y + b.h)) - 60;
+    assert.ok(height < 3500, `evita a coluna de milhares de pixels: ${height}`);
+    assert.ok(width / height > 0.8 && width / height < 3, `proporção equilibrada: ${width / height}`);
+    assert.ok(new Set(boxes.filter(b => b.id.startsWith("ramo-") && Number(b.id.slice(5)) >= 8).map(b => result[b.id].x)).size > 1);
+    for (const e of edges) {
+      const source = boxes.find(b => b.id === e.source);
+      assert.ok(result[e.source].x + source.w < result[e.target].x, "preserva o sentido de cada etapa");
+    }
+    assert.deepEqual(autoLayout(placed, edges, [], gaps), result);
+    assert.deepEqual(autoLayout([...boxes].reverse(), [...edges].reverse(), [], gaps), result);
+    const outside = node("fora", 5000, 600);
+    disjoint([...positioned(boxes, autoLayout(boxes, edges, [outside], gaps)), outside]);
+  }
+});
