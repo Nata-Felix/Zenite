@@ -21,20 +21,17 @@ export function notesToMarkdown(notes: UpdateInfo["releaseNotes"]): string {
   return /<\/?[a-z][^>]*>/i.test(raw) ? htmlToMarkdown(raw) : raw.trim();
 }
 
+/**
+ * Onde ficam os Releases. Fixo no código: a atualização leve troca só o app.asar e mantém o
+ * app-update.yml antigo da instalação, que até a 0.28 apontava para Nata-Felix/zenite-releases.
+ */
+const RELEASES = { owner: "Nata-Felix", repo: "O" };
+
 /** Pasta de uma versão no Release. ZENITE_UPDATE_FEED aponta para um servidor local nos testes. */
 function releaseBase(version: string): string {
   const feed = process.env.ZENITE_UPDATE_FEED;
   if (feed) return feed.replace(/\/?$/, "/");
-  let owner = "Nata-Felix";
-  let repo = "O";
-  try {
-    const yml = ofs.readFileSync(join(process.resourcesPath, "app-update.yml"), "utf8");
-    owner = /^owner:\s*(\S+)/m.exec(yml)?.[1] ?? owner;
-    repo = /^repo:\s*(\S+)/m.exec(yml)?.[1] ?? repo;
-  } catch {
-    // Sem app-update.yml: fica o repositório padrão.
-  }
-  return `https://github.com/${owner}/${repo}/releases/download/v${version}/`;
+  return `https://github.com/${RELEASES.owner}/${RELEASES.repo}/releases/download/v${version}/`;
 }
 
 /**
@@ -235,7 +232,7 @@ export function startUpdater(getWin: () => BrowserWindow | null): void {
   if (process.env.ZENITE_UPDATE_FEED) {
     autoUpdater.setFeedURL({ provider: "generic", url: process.env.ZENITE_UPDATE_FEED });
     autoUpdater.autoInstallOnAppQuit = false;
-  }
+  } else autoUpdater.setFeedURL({ provider: "github", ...RELEASES, releaseType: "release" });
   setTimeout(() => void check(), 10_000);
   setInterval(() => void check(), CHECK_EVERY);
 }

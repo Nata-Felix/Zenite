@@ -27,11 +27,11 @@ jobs:
       - run: npm run release:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Só o instalador visual vai para o Release (não o Setup simples), mais os arquivos da
-      # atualização leve que o app instalado lê.
+      # O instalador visual é para quem baixa; o Setup e o blockmap são o que o latest.yml aponta
+      # e o app instalado baixa na atualização completa; app-*.tar.gz e app-update.json, na leve.
       - run: |
           $v = $env:GITHUB_REF_NAME.TrimStart('v')
           gh release create $env:GITHUB_REF_NAME --repo Nata-Felix/O --title "Zênite $v" --notes-file build/release-notes.md --latest
-          gh release upload $env:GITHUB_REF_NAME (Get-Item dist/Zenite-Instalador-*.exe).FullName dist/latest.yml dist/app-update.json (Get-Item dist/app-*.tar.gz).FullName --repo Nata-Felix/O --clobber
+          gh release upload $env:GITHUB_REF_NAME (Get-Item dist/Zenite-Instalador-*.exe).FullName (Get-Item dist/Zenite-Setup-*.exe).FullName (Get-Item dist/Zenite-Setup-*.exe.blockmap).FullName dist/latest.yml dist/app-update.json (Get-Item dist/app-*.tar.gz).FullName --repo Nata-Felix/O --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
