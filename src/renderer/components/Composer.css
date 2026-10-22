@@ -64,3 +64,12 @@
 .composer-target { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .composer-target small { color: var(--faint); font-size: 11px; }
 .composer-sun { display: inline; margin-left: 5px; color: #f5c96b; vertical-align: -1px; }
+.composer-waiting { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 14px; background: var(--accent-soft); }
+.composer-waiting header { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.composer-waiting header span { color: var(--muted); flex: 1; }
+.composer-link { border: 0; background: transparent; color: var(--accent) !important; font-size: 12px !important; padding: 0; }
+.composer-request { margin: 0; font-size: 13.5px; }
+.composer-screen { margin: 0; max-height: 180px; overflow: auto; padding: 8px 10px; border-radius: 9px; background: var(--term-bg); color: var(--text); font: 12px/1.45 "Cascadia Code", Consolas, monospace; white-space: pre-wrap; }
+.composer-choices { display: flex; flex-wrap: wrap; gap: 6px; }
+.composer-choices button { padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); font-size: 12.5px; text-align: left; }
+.composer-choices button:hover { border-color: var(--accent); background: var(--hover); }

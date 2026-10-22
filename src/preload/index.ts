@@ -91,6 +91,8 @@ const api: OApi = {
     saveImage: (name, bytes) => ipcRenderer.invoke("composer:save-image", name, bytes),
     send: (targets, text, files) => ipcRenderer.invoke("composer:send", targets, text, files),
     dictate: () => ipcRenderer.invoke("composer:dictate"),
+    context: (id) => ipcRenderer.invoke("composer:context", id),
+    choose: (id, choice) => ipcRenderer.invoke("composer:choose", id, choice),
   },
   attention: {
     get: () => ipcRenderer.invoke("attention:get"),

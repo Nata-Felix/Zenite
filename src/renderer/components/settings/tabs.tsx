@@ -164,6 +164,11 @@ export function AgentsTab({ settings, update }: TabProps) {
           <button className="ghost" onClick={() => void window.o.workspaces.revokeDirectAccess()}>Revogar permissões</button>
         </SettingRow>
       </Section>
+      <Section title="Caixa de mensagem (Ctrl+K)">
+        <SettingRow label="Abrir quando um agente esperar você" hint="Quando um agente termina e fica esperando, ou pede atenção, a caixa de mensagem abre sozinha com ele de destino, mostra a tela dele e, se for uma pergunta, as opções como botões. Se você estiver digitando, ela aparece sem roubar o foco.">
+          <Switch label="Abrir quando um agente esperar você" checked={settings.composerOnWait !== false} onChange={(composerOnWait) => void update({ composerOnWait })} />
+        </SettingRow>
+      </Section>
       <Section title="Permissões">
         <SettingRow
           label="Permissões dos agentes"

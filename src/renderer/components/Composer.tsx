@@ -12,6 +12,7 @@ function AgentIcon({ agent, size = 16 }: { agent: ComposerTarget["agent"]; size?
 }
 
 interface Attachment { path: string; name: string; preview?: string }
+interface Waiting { id: string; reason: "done" | "request"; message?: string; screen: string; choices: string[] }
 const IMAGE = /\.(png|jpe?g|gif|webp|bmp)$/i;
 let lastTargets: string[] = [];
 
@@ -19,7 +20,7 @@ let lastTargets: string[] = [];
  * Caixa de mensagem (Ctrl+K): texto e anexos vão direto para o CLI escolhido, como se a
  * pessoa tivesse colado no terminal. Não cria nada no canvas.
  */
-export function Composer() {
+export function Composer({ onJump }: { onJump: (terminalId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [targets, setTargets] = useState<ComposerTarget[]>([]);
   const [chosen, setChosen] = useState<string[]>([]);
@@ -28,29 +29,66 @@ export function Composer() {
   const [menu, setMenu] = useState<"add" | "to" | null>(null);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [waiting, setWaiting] = useState<Waiting | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const state = useRef({ open, text });
+  const choosing = useRef(false);
+  state.current = { open, text };
+
+  // Abre a caixa para `forced` (agente esperando) ou para o terminal em uso.
+  const show = async (forced?: string, focus = true) => {
+    const focused = forced ?? (document.activeElement as HTMLElement | null)?.closest?.(".react-flow__node")?.getAttribute("data-id")
+      ?? document.querySelector(".react-flow__node.selected")?.getAttribute("data-id");
+    const running = (await window.o.composer.targets()).filter((t) => t.running);
+    setTargets(running);
+    const keep = lastTargets.filter((id) => running.some((t) => t.id === id));
+    setChosen(focused && running.some((t) => t.id === focused) ? [focused] : keep.length ? keep : running[0] ? [running[0].id] : []);
+    setError(running.length ? "" : "Nenhum terminal aberto neste canvas.");
+    setOpen(true);
+    if (focus) setTimeout(() => input.current?.focus(), 30);
+  };
+  const loadContext = async (id: string, reason: Waiting["reason"], message?: string) => {
+    const ctx = await window.o.composer.context(id).catch(() => ({ screen: "", choices: [] }));
+    setWaiting({ id, reason, message, ...ctx });
+  };
 
   useCommands((c) => {
     if (c !== "open-composer") return;
     if (open) { setOpen(false); return; }
-    // O destino padrão é o terminal em uso: o do foco, o selecionado ou o último que recebeu.
-    const focused = (document.activeElement as HTMLElement | null)?.closest?.(".react-flow__node")?.getAttribute("data-id")
-      ?? document.querySelector(".react-flow__node.selected")?.getAttribute("data-id");
-    void window.o.composer.targets().then((list) => {
-      const running = list.filter((t) => t.running);
-      setTargets(running);
-      const keep = lastTargets.filter((id) => running.some((t) => t.id === id));
-      const start = focused && running.some((t) => t.id === focused) ? [focused] : keep.length ? keep : running[0] ? [running[0].id] : [];
-      setChosen(start);
-      setError(running.length ? "" : "Nenhum terminal aberto neste canvas.");
-      setOpen(true);
-      setTimeout(() => input.current?.focus(), 30);
-    });
+    setWaiting(null);
+    void show();
   });
+
+  // Agente que passa a esperar você: a caixa abre sozinha, já com ele de destino (Configurações → Agentes).
+  useEffect(() => {
+    let known = new Set<string>();
+    let lastKey = 0;
+    const onKey = () => { lastKey = Date.now(); };
+    window.addEventListener("keydown", onKey, true);
+    void window.o.attention.get().then((all) => { known = new Set(Object.keys(all)); });
+    const off = window.o.attention.onChanged(async (all) => {
+      const ids = Object.keys(all);
+      const added = ids.filter((id) => !known.has(id));
+      known = new Set(ids);
+      // Quem saiu da espera por outro caminho (foi atendido no terminal) fecha a caixa aberta para ele.
+      // Durante uma escolha pela caixa as setas já contam como resposta: não fecha, para mostrar o erro.
+      if (!choosing.current) setWaiting((w) => {
+        if (w && !ids.includes(w.id) && state.current.open && !state.current.text.trim()) setOpen(false);
+        return w && ids.includes(w.id) ? w : null;
+      });
+      const id = added[added.length - 1];
+      if (!id || state.current.text.trim()) return;
+      if ((await window.o.workspaces.list()).settings?.composerOnWait === false) return;
+      const info = all[id];
+      await show(id, Date.now() - lastKey > 1500); // não rouba o foco de quem está digitando
+      await loadContext(id, info.reason, info.message);
+    });
+    return () => { off(); window.removeEventListener("keydown", onKey, true); };
+  }, []);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); if (menu) setMenu(null); else setOpen(false); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); if (menu) setMenu(null); else { setOpen(false); setWaiting(null); } } };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
   }, [open, menu]);
@@ -87,7 +125,7 @@ export function Composer() {
     setSending(false);
     if (!r.ok) return setError(r.errors.join(" · "));
     lastTargets = chosen;
-    setText(""); setFiles([]); setOpen(false);
+    setText(""); setFiles([]); setOpen(false); setWaiting(null);
   };
   const toggle = (id: string) => setChosen((c) => c.includes(id) ? c.filter((x) => x !== id) : [...c, id]);
   const first = targets.find((t) => t.id === chosen[0]);
@@ -116,6 +154,33 @@ export function Composer() {
             ))}
           </div>
         )}
+        {waiting && (() => {
+          const who = targets.find((t) => t.id === waiting.id);
+          return (
+            <div className="composer-waiting">
+              <header>
+                {who && <AgentIcon agent={who.agent} />}
+                <strong>{who?.title ?? "Agente"}</strong>
+                <span>{waiting.reason === "request" ? "pede sua atenção" : "está esperando você"}</span>
+                <button className="composer-link" onClick={() => { const id = waiting.id; setOpen(false); setWaiting(null); onJump(id); }}>Ver no canvas</button>
+              </header>
+              {waiting.message && <p className="composer-request">{waiting.message}</p>}
+              {waiting.screen && <pre className="composer-screen">{waiting.screen}</pre>}
+              {waiting.choices.length > 0 && (
+                <div className="composer-choices">
+                  {waiting.choices.map((c) => (
+                    <button key={c} onClick={async () => {
+                      choosing.current = true;
+                      try { await window.o.composer.choose(waiting.id, c.replace(/^\d+\.\s*/, "")); setOpen(false); setWaiting(null); }
+                      catch (e) { setError((e as Error).message); }
+                      finally { choosing.current = false; }
+                    }}>{c}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {files.length > 0 && (
           <div className="composer-files">
             {files.map((f) => (

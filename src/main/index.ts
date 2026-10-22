@@ -50,7 +50,7 @@ import { ZeniteBrowser } from "./zeniteBrowser";
 import { killTrees, killZeniteCodex, killZeniteCodexOf } from "./terminalCleanup";
 import { missingFrom, readPathNow, refreshPath } from "./freshPath";
 import { programOf, withPermissions, withSolAccess } from "./fullAccess";
-import { agentOf, looksBusy, parseMenu } from "./agentControl";
+import { agentOf, looksBusy, parseMenu, pick } from "./agentControl";
 import { canGrantSolAccess, flowPermission, grantCodexSolAccess, scriptPermission, solWelcomeMessage } from "./solAccess";
 import { FlowWaits } from "./flowWaits";
 import { SunAuthority } from "./sunAuthority";
@@ -672,6 +672,20 @@ app.whenReady().then(async () => {
     const script = "Add-Type -Namespace Z -Name K -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void keybd_event(byte k, byte s, uint f, UIntPtr e);'; [Z.K]::keybd_event(0x5B,0,0,[UIntPtr]::Zero); [Z.K]::keybd_event(0x48,0,0,[UIntPtr]::Zero); [Z.K]::keybd_event(0x48,0,2,[UIntPtr]::Zero); [Z.K]::keybd_event(0x5B,0,2,[UIntPtr]::Zero)";
     execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script], { windowsHide: true, timeout: 10000 }, () => {});
   });
+  // Agente esperando: as últimas linhas da tela e, se houver, as opções do menu aberto.
+  ipcMain.handle("composer:context", async (e, id: string) => {
+    requireMainUI(e);
+    const screen = (await ptys.snapshot(id, 60)) ?? "";
+    const menu = parseMenu(screen);
+    const lines = screen.split("\n").map((l) => l.replace(/\s+$/, "")).filter((l) => l.trim());
+    return { screen: lines.slice(-14).join("\n"), choices: menu?.items.map((i) => i.text) ?? [] };
+  });
+  ipcMain.handle("composer:choose", async (e, id: string, choice: string) => {
+    requireMainUI(e);
+    if (!ptys.has(id)) throw new Error("O terminal não está aberto.");
+    await pick({ write: (d) => ptys.write(id, d), snapshot: (n) => ptys.snapshot(id, n ?? 80), quiet: () => ptys.quiet(id) }, choice);
+    attention.clear(id);
+  });
   ipcMain.handle("composer:send", async (e, targets: string[], text: string, files: string[]) => {
     requireMainUI(e);
     const errors: string[] = [];
@@ -695,6 +709,8 @@ app.whenReady().then(async () => {
         }
       } catch (error) { errors.push(`${title}: ${(error as Error).message}`); }
     }));
+    // Respondeu pela caixa: o aviso de "esperando você" desse terminal some.
+    for (const id of targets) if (!errors.some((e) => e.startsWith(`${terminalSpec(id)?.title ?? "Terminal"}:`))) attention.clear(id);
     return { ok: errors.length === 0, errors };
   });
   ipcMain.handle("isolation:revoke", () => directAccess.revoke());

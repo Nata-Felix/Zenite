@@ -138,7 +138,7 @@ export function App() {
       <CloseDialog />
       <AppDialog />
       <AwayPanel onJump={(id) => void jump(id)} />
-      <Composer />
+      <Composer onJump={(id) => void jump(id)} />
       <LinkDialog />
       <Sidebar index={index} collapsed={collapsed} onToggle={toggleSidebar} onChange={setIndex} />
       {/* key: trocar de galáxia/universo monta um canvas novo; os terminais do anterior seguem rodando. */}
