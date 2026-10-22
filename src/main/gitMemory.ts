@@ -98,3 +98,14 @@ export async function pendingCount(dir: string): Promise<number | null> {
   const r = await git(["status", "--porcelain", "-uall"], dir);
   return r.code === 0 ? r.stdout.split("\n").filter(Boolean).length : null;
 }
+
+/** Commits de todas as branches desde um instante (ms), do mais novo para o mais antigo. */
+export async function commitsSince(dir: string, since: number, limit = 20): Promise<HistoryEntry[]> {
+  const r = await git(["log", "--all", `-n${limit}`, `--since=${Math.floor(since / 1000)}`, "--format=%h%x09%D%x09%s%x09%cr%x09%an"], dir);
+  if (r.code !== 0) return [];
+  return r.stdout.split("\n").filter(Boolean).map((line) => {
+    const [hash, refs, title, when, author] = line.split("\t");
+    const branch = (refs ?? "").split(",").map((x) => x.replace("HEAD -> ", "").trim()).filter((x) => x && x !== "HEAD" && !x.startsWith("tag:"))[0] ?? "";
+    return { hash, branch, title, when, author };
+  });
+}

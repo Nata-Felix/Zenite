@@ -110,6 +110,9 @@ export function NotificationsTab({ settings, update }: TabProps) {
           <Switch label="Quando um terminal terminar" checked={settings.notifyDone === true} onChange={(notifyDone) => void update({ notifyDone })} />
         </SettingRow>
         <p className="setting-hint">As notificações só aparecem com o Zênite em segundo plano.</p>
+        <SettingRow label="Resumo ao voltar" hint="Depois desse tempo sem usar o Zênite (outra janela em foco ou o computador parado), mostra o que os terminais, o Sol, os astros e o Git fizeram enquanto isso. Montado no seu computador, sem IA.">
+          <Choice label="Resumo ao voltar" value={settings.awaySummaryMinutes ?? 10} options={[{ value: 0, label: "Desligado" }, { value: 5, label: "5 min" }, { value: 10, label: "10 min" }, { value: 30, label: "30 min" }, { value: 60, label: "1 h" }]} onChange={(awaySummaryMinutes) => void update({ awaySummaryMinutes })} />
+        </SettingRow>
       </Section>
     </>
   );

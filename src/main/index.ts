@@ -1,22 +1,23 @@
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, watch, writeFileSync, type FSWatcher } from "node:fs";
-import { app, BrowserWindow, clipboard, Menu, safeStorage, dialog, ipcMain as electronIpcMain, nativeImage, net, Notification, powerSaveBlocker, protocol, shell, webContents } from "electron";
+import { app, BrowserWindow, clipboard, Menu, powerMonitor, safeStorage, dialog, ipcMain as electronIpcMain, nativeImage, net, Notification, powerSaveBlocker, protocol, shell, webContents } from "electron";
 import { homedir } from "node:os";
 import { basename, delimiter, join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { AccountAgent, AccountMeta, AppSettings, AttentionInfo, CanvasExportResult, CanvasNode, CanvasState, CanvasTransferResult, NodeKind, CreatePtyRequest, EnvVar, FlowAgentOptions, FlowSpec, FlowStatus, TerminalStats, TerminalUsage, WorkspaceMeta } from "../shared/types";
+import type { AccountAgent, AccountMeta, AppSettings, AttentionInfo, CanvasExportResult, CanvasNode, CanvasState, CanvasTransferResult, NodeKind, CreatePtyRequest, EnvVar, FlowAgentOptions, FlowSpec, FlowStatus, TaskStatus, TerminalStats, TerminalUsage, WorkspaceMeta } from "../shared/types";
 import { nodeTitle } from "../shared/types";
 import type { CanvasOpsReply, CanvasUiReply } from "../shared/canvasOps";
 import { RoleStore, SolLog } from "./solTools";
 import { plural } from "../shared/plural";
 import { AttentionTracker, type Attention } from "./attention";
+import { AwayLog, hasNews } from "./awaySummary";
 import { Accounts } from "./accounts";
 import { CanvasAccess } from "./canvasAccess";
 import { installDocker, IsolatedRuntime } from "./isolatedRuntime";
 import { isolatedFile } from "./isolatedFiles";
 import { cliTheme } from "./cliTheme";
 import { installGuide, uninstallGuide } from "./agentGuide";
-import { commitAsAgent, pendingCount, recentHistory } from "./gitMemory";
+import { commitAsAgent, commitsSince, pendingCount, recentHistory } from "./gitMemory";
 import { git } from "./universes";
 import { firstCommit, gitVersion, identity, initRepo, repoState, setIdentity } from "./gitSetup";
 import { neighborhoodFromStore } from "./canvasGraph";
@@ -197,6 +198,9 @@ app.whenReady().then(async () => {
   });
   const tasksFile = join(dataDir, "selos.json");
   const solLog = new SolLog(join(dataDir, "registro-do-sol"));
+  // Cada lote do Sol também entra no resumo de ausência.
+  const appendSolLog = solLog.append.bind(solLog);
+  solLog.append = (canvasId, entry) => { appendSolLog(canvasId, entry); awayLog.record({ kind: "sol", what: entry.what }); };
   const canvasClipboard = new CanvasClipboard(dataDir, store, elements);
 
   // Com pedaços (Range): o vídeo pula para qualquer ponto e toca de novo depois do fim (mediaResponse.ts).
@@ -322,10 +326,34 @@ app.whenReady().then(async () => {
     });
     n.show();
   };
+  // "Enquanto você esteve fora": o que aconteceu com o Zênite sem uso, mostrado ao voltar.
+  const awayLog = new AwayLog();
   const attention = new AttentionTracker((all, added) => {
     win?.webContents.send("attention:changed", enrich(all));
-    if (added) announce(added.id, added.attention);
+    if (added) {
+      announce(added.id, added.attention);
+      awayLog.record(added.attention.reason === "request" ? { kind: "request", id: added.id, message: added.attention.message } : { kind: "done", id: added.id });
+    }
   });
+
+  let lastTasks: Record<string, TaskStatus> = {};
+  const cameBack = async () => {
+    if (!awayLog.away) return;
+    const minutes = settings().awaySummaryMinutes ?? 10;
+    const summary = awayLog.back(Date.now(), minutes ? minutes * 60_000 : Infinity, {
+      terminal: (id) => {
+        const info = nodeInfo(id);
+        return info ? { title: info.title, where: info.place.universe ? `${info.place.workspace.name} · ${info.place.universe.name}` : info.place.workspace.name } : undefined;
+      },
+      flow: (id) => nodeInfo(id)?.title,
+    });
+    if (!summary) return;
+    for (const ws of store.list().workspaces) {
+      if (!ws.dir) continue;
+      for (const c of await commitsSince(ws.dir, summary.since).catch(() => [])) summary.commits.push({ ...c, galaxy: ws.name });
+    }
+    if (hasNews(summary)) win?.webContents.send("away:summary", summary);
+  };
 
   // Impedir a suspensão: nunca, enquanto algum terminal trabalha, ou sempre.
   let sleepBlocker: number | null = null;
@@ -517,6 +545,8 @@ app.whenReady().then(async () => {
     usageOf: (id) => lastUsage[id],
     tasksChanged: (all) => {
       win?.webContents.send("tasks:changed", all);
+      for (const [id, status] of Object.entries(all)) if (lastTasks[id]?.at !== status.at) awayLog.record({ kind: "status", id, status });
+      lastTasks = { ...all };
       try {
         writeFileSync(tasksFile, JSON.stringify(all), "utf8");
       } catch {
@@ -1299,6 +1329,7 @@ app.whenReady().then(async () => {
           if (s.state === "running") activeFlowSteps.get(startId)?.add(s.nodeId);
           else activeFlowSteps.get(startId)?.delete(s.nodeId);
           lastFlowStatus.set(s.nodeId, s);
+          awayLog.record({ kind: "flow", status: s });
           win?.webContents.send("flow:status", s);
         },
         stopped: () => stopFlows.has(startId),
@@ -1532,8 +1563,21 @@ app.whenReady().then(async () => {
     refreshPath();
     attention.windowFocus(true);
     w.flashFrame(false);
+    void cameBack();
   });
-  w?.on("blur", () => attention.windowFocus(false));
+  w?.on("blur", () => {
+    attention.windowFocus(false);
+    awayLog.leave(Date.now());
+  });
+  // Com a janela em foco, o computador parado também conta como ausência.
+  const idleTimer = setInterval(() => {
+    const idle = powerMonitor.getSystemIdleTime();
+    const minutes = settings().awaySummaryMinutes ?? 10;
+    if (!minutes || !w?.isFocused()) return;
+    if (!awayLog.away && idle * 1000 >= minutes * 60_000) awayLog.leave(Date.now() - idle * 1000);
+    else if (awayLog.away && idle < 5) void cameBack();
+  }, 15_000);
+  app.on("will-quit", () => clearInterval(idleTimer));
   // Fechar por engano não pode matar agentes no meio do trabalho. A pergunta aparece num
   // diálogo do próprio app; se a página não responder (travada), usa a caixa do Windows.
   let closing = false;

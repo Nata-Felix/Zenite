@@ -202,6 +202,28 @@ export interface FlowStatus {
   at: number;
 }
 
+/** "Enquanto você esteve fora": o que cada terminal, o Sol, os astros e o Git fizeram. */
+export interface AwayTerminal {
+  id: string;
+  title: string;
+  /** Galáxia (e universo) onde o terminal está. */
+  where: string;
+  /** Turnos de trabalho que terminaram. */
+  turns: number;
+  /** Pedidos de atenção (zn notify). */
+  requests: string[];
+  /** Último selo (zn status) posto enquanto isso. */
+  status?: TaskStatus;
+}
+export interface AwaySummary {
+  since: number;
+  until: number;
+  terminals: AwayTerminal[];
+  sol: { count: number; recent: string[] };
+  flows: { title: string; ok: number; errors: number; lastError?: string }[];
+  commits: { hash: string; title: string; branch: string; author: string; galaxy: string }[];
+}
+
 /** Opções dos menus do Satélite: contas com login e modelos/esforços de cada CLI. */
 export interface FlowAgentOptions {
   accounts: { id: string; name: string; agent: AccountAgent; loggedIn: boolean }[];
@@ -488,6 +510,8 @@ export interface AppSettings {
   notifyDone?: boolean;
   /** Notificação do Windows quando um agente pede atenção com `zn notify` (padrão: sim). */
   notifyRequest?: boolean;
+  /** Resumo do que aconteceu ao voltar depois de N minutos sem usar o Zênite (padrão: 10; 0 = desligado). */
+  awaySummaryMinutes?: number;
   /** Número de avisos no ícone da barra de tarefas (padrão: sim). */
   taskbarBadge?: boolean;
   /** Piscar o botão da barra de tarefas quando alguém precisa de você (padrão: não). */
@@ -775,6 +799,8 @@ export interface OApi {
     onChanged(listener: (all: Record<string, AttentionInfo>) => void): () => void;
     /** Notificação clicada: ir até o terminal. */
     onJump(listener: (terminalId: string) => void): () => void;
+    /** Ao voltar depois de um tempo fora: o que aconteceu enquanto isso. */
+    onAwaySummary(listener: (summary: AwaySummary) => void): () => void;
     /** Terminal em foco (null = nenhum). */
     focus(terminalId: string | null): void;
     clear(terminalId: string): void;

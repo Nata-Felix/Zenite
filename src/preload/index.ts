@@ -89,6 +89,7 @@ const api: OApi = {
     get: () => ipcRenderer.invoke("attention:get"),
     onChanged: (listener) => subscribe("attention:changed", listener),
     onJump: (listener) => subscribe("attention:jump", listener),
+    onAwaySummary: (listener) => subscribe("away:summary", listener),
     focus: (id) => ipcRenderer.send("attention:focus", id),
     clear: (id) => ipcRenderer.send("attention:clear", id),
     badge: (count, dataUrl) => ipcRenderer.send("attention:badge", count, dataUrl),

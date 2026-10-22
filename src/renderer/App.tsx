@@ -6,6 +6,7 @@ import { Sidebar } from "./components/Sidebar";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { CloseDialog } from "./components/CloseDialog";
 import { AppDialog } from "./components/AppDialog";
+import { AwayPanel } from "./components/AwayPanel";
 import { LinkDialog } from "./components/LinkDialog";
 import { readPref, writePref } from "./prefs";
 import { attentionQueue, badgeImage, requestFocus, useAttentionAll } from "./attentionBus";
@@ -135,6 +136,7 @@ export function App() {
       <UpdateDialog />
       <CloseDialog />
       <AppDialog />
+      <AwayPanel onJump={(id) => void jump(id)} />
       <LinkDialog />
       <Sidebar index={index} collapsed={collapsed} onToggle={toggleSidebar} onChange={setIndex} />
       {/* key: trocar de galáxia/universo monta um canvas novo; os terminais do anterior seguem rodando. */}
