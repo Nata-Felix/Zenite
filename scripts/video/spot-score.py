@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / 'out/video-tools/python'))
 import numpy as np
 
 RATE = 44100
-SECONDS = 40
+SECONDS = int(sys.argv[1]) if len(sys.argv) > 1 else 40  # múltiplo de 2 (compassos)
 BEAT = 0.5
 rng = np.random.default_rng(43)
 left = np.zeros(RATE * SECONDS, dtype=np.float32)
@@ -82,7 +82,7 @@ for bar in range(SECONDS // 2):
     chord = chords[bar % 4]
     for i, note in enumerate(chord):
         add(start, pad(2.6, note, .05 if start < 4 else .035), (i - 1.5) / 3)
-    if 4 <= start < 36:
+    if 4 <= start < SECONDS - 4:
         # Baixo em colcheias, kick em todo tempo, palmas no 2 e no 4, chimbal nas colcheias.
         for step in range(8):
             add(start + step * BEAT / 2, tone(.22, roots[bar % 4], .22, .005, 7, (1, .5, .2)))
@@ -99,18 +99,18 @@ for bar in range(SECONDS // 2):
 
 add(0, riser(4, .35))
 add(4, impact())
-add(30, riser(2, .3))
-add(32, impact(.7))
+add(SECONDS - 10, riser(2, .3))
+add(SECONDS - 8, impact(.7))
 for i, note in enumerate((50, 57, 62, 65, 69, 74)):
-    add(36, pad(4, note, .06), (i - 2.5) / 3)
-add(36, tone(4, 74, .12, .01, .9, (1, .4, .15)))
+    add(SECONDS - 4, pad(4, note, .06), (i - 2.5) / 3)
+add(SECONDS - 4, tone(4, 74, .12, .01, .9, (1, .4, .15)))
 
 mix = np.stack([left, right], axis=1)
 mix = np.tanh(mix * 1.4) / np.tanh(1.4)  # saturação leve, segura os picos
 fade = np.ones(len(mix), dtype=np.float32)
 fade[-RATE * 2:] = np.linspace(1, 0, RATE * 2)
 mix = (mix * fade[:, None] * .8 * 32767).astype(np.int16)
-out = ROOT / 'out/comercial-zenite/audio/trilha-spot.wav'
+out = ROOT / 'out/comercial-zenite/audio' / (sys.argv[2] if len(sys.argv) > 2 else 'trilha-spot.wav')
 with wave.open(str(out), 'wb') as f:
     f.setnchannels(2)
     f.setsampwidth(2)

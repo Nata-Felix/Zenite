@@ -80,9 +80,20 @@ canvases.agents=canvas([
   el('project-cli','folder','Projeto conectado',0,420,330,320,{path:project}),
 ], [edge('sol-cli','builder-cli'),edge('sol-cli','reviewer-cli'),edge('sol-cli','brief-cli'),edge('builder-cli','brief-cli'),edge('reviewer-cli','brief-cli'),edge('sol-cli','delivery-cli'),edge('builder-cli','project-cli'),edge('reviewer-cli','project-cli')],{x:35,y:125,zoom:.66});
 canvases.giant=require('./giant-canvas.cjs')({root,profile,project});
-const names = { studio: '01 · Canvas vivo', elements: '02 · Elementos', draw: '03 · Desenhe suas ideias', multiverse: '04 · Universos paralelos', flows: '05 · Fluxos em ação',agents:'06 · Sol e agentes CLI',giant:'07 · Canvas gigante' };
+if(process.env.ZENITE_FILM_STORY==='youtube'){
+  canvases.story=canvas([{id:'sol',kind:'terminal',x:0,y:0,width:640,height:430,terminal:{id:'sol',title:'Sol',command:`node '${join(__dirname,'sol-show.cjs')}' youtube`,cwd:project,appearance:{color:'#f5c96b',fontSize:16}}}],[],{x:120,y:160,zoom:.9});
+}
+if(process.env.ZENITE_FILM_STORY==='bugs'){
+  require('./story-bugs.cjs').seed(project);
+  execFileSync('git',['-C',project,'add','.']);execFileSync('git',['-C',project,'commit','--quiet','-m','Loja Aurora com o carrinho e o checkout']);
+  canvases.story=canvas([
+    {id:'sol',kind:'terminal',x:0,y:0,width:640,height:430,terminal:{id:'sol',title:'Sol',command:`node '${join(__dirname,'sol-show.cjs')}' bugs`,cwd:project,appearance:{color:'#f5c96b',fontSize:16}}},
+    el('loja','folder','Loja Aurora',0,520,300,330,{path:project}),
+  ],[edge('sol','loja')],{x:120,y:160,zoom:.9});
+}
+const names = { studio: '01 · Canvas vivo', elements: '02 · Elementos', draw: '03 · Desenhe suas ideias', multiverse: '04 · Universos paralelos', flows: '05 · Fluxos em ação',agents:'06 · Sol e agentes CLI',giant:'07 · Canvas gigante',...(canvases.story?{story:process.env.ZENITE_FILM_STORY==='youtube'?'Cozinha da Bia':'Loja Aurora'}:{}) };
 for (const [id, state] of Object.entries(canvases)) writeFileSync(join(profile, 'workspaces', id + '.json'), JSON.stringify(state));
-const index = { version: 1, activeId: process.env.ZENITE_FILM_ACTIVE || 'studio', workspaces: Object.entries(names).map(([id, name]) => ({ id, name, dir: project, universes: [] })), settings: { confirmQuit: false, agentGuide: false, agentPermissions: 'ask', isolatedAgents: false, notifyDone: false, notifyRequest: false } };
+const index = { version: 1, activeId: process.env.ZENITE_FILM_ACTIVE || 'studio', workspaces: Object.entries(names).map(([id, name]) => ({ id, name, dir: project, universes: [] })), settings: { confirmQuit: false, agentGuide: false, agentPermissions: process.env.ZENITE_FILM_PERMISSIONS || 'ask', isolatedAgents: false, notifyDone: false, notifyRequest: false } };
 writeFileSync(join(profile, 'workspaces/index.json'), JSON.stringify(index));
 const seed = join(profile, 'seed.cjs');
 writeFileSync(seed, `if(!localStorage.getItem('studio.seed')){localStorage.setItem('studio.seed','true');localStorage.setItem('o.theme','"dark"');localStorage.setItem('o.accent','"indigo"');localStorage.setItem('o.summaryView','false');localStorage.setItem('o.canvasBg',JSON.stringify({pattern:'starfield',spacing:'large',size:1,intensity:.6,detail:.24}));localStorage.setItem('o.canvas',JSON.stringify({v:2,edge:'bezier',pulse:true,connectionAnimation:'aurora',connectionEffect:{color:'',activeSpeed:1,idleSpeed:.8},hideConnectionLine:true,startTool:'hand'}));}`);
@@ -134,6 +145,12 @@ const api = createServer(async (req, res) => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.end('<body style="margin:0;background:#111425;color:#e9edff;font:17px Segoe UI;padding:45px"><small style="color:#9dacff;letter-spacing:4px">AURORA / ESTÚDIO</small><h1 style="font-size:46px;font-weight:400">Ideias encontram<br>o próximo passo.</h1><p style="color:#a4adc5;line-height:1.8">Um protótipo local, dentro do seu canvas.<br>Contexto perto de quem está construindo.</p><button onclick="this.textContent=\'Protótipo validado ✓\'" style="border:0;border-radius:9px;background:#a5b5ff;padding:14px 20px;margin-top:18px">Explorar o projeto →</button>');
     }
+    if (url.pathname === '/whatsapp') {
+      // Webhook do astro "WhatsApp do cliente": marca o instante para o celular aparecer na edição.
+      let body = ''; for await (const chunk of req) body += chunk;
+      writeFileSync(join(out, 'whatsapp.json'), JSON.stringify({ at: Date.now(), body, recording: active ? { name: active.name, started: active.started } : null }));
+      return res.end('{"ok":true}');
+    }
     if (url.pathname === '/admin') { res.setHeader('Content-Type','text/html; charset=utf-8'); return res.end(readFileSync(join(__dirname,'admin-dashboard.html'))); }
     if (url.pathname === '/data') {
       // Estado publicado pelos terminais reais do canvas gigante, mais a tabela da sprint.
@@ -148,6 +165,7 @@ const api = createServer(async (req, res) => {
 });
 api.listen(0, '127.0.0.1', () => {
   apiPort = api.address().port;
+  process.env.ZENITE_FILM_API = `http://127.0.0.1:${apiPort}`;
   const state = canvases.elements; state.nodes.find(node => node.id === 'site').element.url = `http://127.0.0.1:${apiPort}/site`;
   writeFileSync(join(profile, 'workspaces/elements.json'), JSON.stringify(state));
   const giant = canvases.giant; for (const node of giant.nodes) if (node.kind === 'web') node.element.url = `http://127.0.0.1:${apiPort}${node.element.url}`;
@@ -163,7 +181,7 @@ app.once('browser-window-created', (_event, window) => {
     win.showInactive();
     writeFileSync(join(out, 'ready.json'), JSON.stringify({ apiPort, profile, project, pid: process.pid }));
     console.log('STUDIO READY');
-    if (process.env.ZENITE_FILM_AUTORUN === '1') require(process.env.ZENITE_FILM_PHASE==='spot'?'./take-spot.cjs':process.env.ZENITE_FILM_PHASE==='giant'?'./take-giant.cjs':process.env.ZENITE_FILM_PHASE==='result'?'./take-result.cjs':process.env.ZENITE_FILM_PHASE==='completion'?'./take-completion.cjs':process.env.ZENITE_FILM_PHASE==='agents'?'./take-agents.cjs':'./take.cjs')({ win, out, profile, project, api: () => `http://127.0.0.1:${apiPort}` }).catch(error => { console.error(error.stack); writeFileSync(join(out, 'take-error.txt'), error.stack); });
+    if (process.env.ZENITE_FILM_AUTORUN === '1') require(process.env.ZENITE_FILM_PHASE==='story'?'./take-story.cjs':process.env.ZENITE_FILM_PHASE==='spot'?'./take-spot.cjs':process.env.ZENITE_FILM_PHASE==='giant'?'./take-giant.cjs':process.env.ZENITE_FILM_PHASE==='result'?'./take-result.cjs':process.env.ZENITE_FILM_PHASE==='completion'?'./take-completion.cjs':process.env.ZENITE_FILM_PHASE==='agents'?'./take-agents.cjs':'./take.cjs')({ win, out, profile, project, api: () => `http://127.0.0.1:${apiPort}` }).catch(error => { console.error(error.stack); writeFileSync(join(out, 'take-error.txt'), error.stack); });
   });
 });
 app.on('will-quit', () => { api.close(); if (active) { clearInterval(active.timer); active.process.stdin.end(); } });
