@@ -52,3 +52,47 @@ test("tela pedindo uma decisão bloqueia o envio", async () => {
   assert.equal(waitingForChoice("› Ask Codex to do anything", false), false);
   assert.equal(waitingForChoice("qualquer coisa", true), true);
 });
+
+test("última resposta do Codex, sem caixa de digitação nem rodapé", async () => {
+  const { lastReply, replyOptions } = await import(pathToFileURL(outfile).href);
+  const screen = [
+    "› Monte a home do site",
+    "",
+    "• Posso seguir por dois caminhos:",
+    "",
+    "  **Qual você prefere?**",
+    "  1. Layout com hero grande",
+    "  2. Layout em grade",
+    "",
+    "  Worked for 12s • 15:19",
+    "",
+    "› Ask Codex to do anything",
+    "",
+    String.raw`  GPT-6.1-Sol medium fast · C:\videos · Monte a home`,
+    "  ↵ for agents · ? for shortcuts",
+  ].join("\n");
+  const reply = lastReply(screen);
+  assert.equal(reply, "Posso seguir por dois caminhos:\n\n**Qual você prefere?**\n1. Layout com hero grande\n2. Layout em grade");
+  assert.deepEqual(replyOptions(reply), [{ key: "1", label: "Layout com hero grande" }, { key: "2", label: "Layout em grade" }]);
+});
+
+test("última resposta do Claude Code, dentro da moldura", async () => {
+  const { lastReply } = await import(pathToFileURL(outfile).href);
+  const screen = [
+    "> qual o status?",
+    "",
+    "● Está tudo pronto.",
+    "  - testes: **ok**",
+    "",
+    "╭──────────────────────────╮",
+    "│ >                        │",
+    "╰──────────────────────────╯",
+    "  ? for shortcuts",
+  ].join("\n");
+  assert.equal(lastReply(screen), "Está tudo pronto.\n- testes: **ok**");
+});
+
+test("lista numerada sem pergunta não vira botões", async () => {
+  const { replyOptions } = await import(pathToFileURL(outfile).href);
+  assert.deepEqual(replyOptions("Fiz assim:\n1. criei a home\n2. testei"), []);
+});

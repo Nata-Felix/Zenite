@@ -11,7 +11,7 @@ import { RoleStore, SolLog } from "./solTools";
 import { plural } from "../shared/plural";
 import { AttentionTracker, type Attention } from "./attention";
 import { AwayLog, hasNews } from "./awaySummary";
-import { composeSteps, MAX_ATTACHMENT, stashAttachment, waitingForChoice } from "./composer";
+import { composeSteps, lastReply, MAX_ATTACHMENT, replyOptions, stashAttachment, waitingForChoice } from "./composer";
 import { Accounts } from "./accounts";
 import { CanvasAccess } from "./canvasAccess";
 import { installDocker, IsolatedRuntime } from "./isolatedRuntime";
@@ -678,7 +678,11 @@ app.whenReady().then(async () => {
     const screen = (await ptys.snapshot(id, 60)) ?? "";
     const menu = parseMenu(screen);
     const lines = screen.split("\n").map((l) => l.replace(/\s+$/, "")).filter((l) => l.trim());
-    return { screen: lines.slice(-14).join("\n"), choices: menu?.items.map((i) => i.text) ?? [] };
+    const reply = lastReply(screen);
+    const options = menu ? [] : replyOptions(reply);
+    // Precisa de você: menu/permissão na tela ou resposta que termina perguntando com opções.
+    const needsYou = waitingForChoice(screen, !!menu) || options.length > 0 || /\?\s*$/.test(reply);
+    return { screen: lines.slice(-14).join("\n"), choices: menu?.items.map((i) => i.text) ?? [], reply, options, needsYou };
   });
   ipcMain.handle("composer:choose", async (e, id: string, choice: string) => {
     requireMainUI(e);

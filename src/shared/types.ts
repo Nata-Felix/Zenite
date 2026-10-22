@@ -522,8 +522,8 @@ export interface AppSettings {
   notifyRequest?: boolean;
   /** Resumo do que aconteceu ao voltar depois de N minutos sem usar o Zênite (padrão: 10; 0 = desligado). */
   awaySummaryMinutes?: number;
-  /** Abre a caixa de mensagem sozinha quando um agente para esperando você (padrão: sim). */
-  composerOnWait?: boolean;
+  /** Quando a caixa de mensagem abre sozinha: só quando um agente precisa de você (padrão), também quando termina, ou nunca. false = nunca (valor antigo). */
+  composerOnWait?: "decision" | "done" | "off" | boolean;
   /** Número de avisos no ícone da barra de tarefas (padrão: sim). */
   taskbarBadge?: boolean;
   /** Piscar o botão da barra de tarefas quando alguém precisa de você (padrão: não). */
@@ -815,7 +815,7 @@ export interface OApi {
     /** Abre o ditado do Windows (Win+H) para falar em vez de digitar. */
     dictate(): Promise<void>;
     /** Últimas linhas da tela do terminal e as opções do menu aberto (se houver). */
-    context(id: string): Promise<{ screen: string; choices: string[] }>;
+    context(id: string): Promise<{ screen: string; choices: string[]; reply: string; options: { key: string; label: string }[]; needsYou: boolean }>;
     /** Escolhe uma opção do menu aberto no terminal. */
     choose(id: string, choice: string): Promise<void>;
   };

@@ -165,8 +165,10 @@ export function AgentsTab({ settings, update }: TabProps) {
         </SettingRow>
       </Section>
       <Section title="Caixa de mensagem (Ctrl+K)">
-        <SettingRow label="Abrir quando um agente esperar você" hint="Quando um agente termina e fica esperando, ou pede atenção, a caixa de mensagem abre sozinha com ele de destino, mostra a tela dele e, se for uma pergunta, as opções como botões. Se você estiver digitando, ela aparece sem roubar o foco.">
-          <Switch label="Abrir quando um agente esperar você" checked={settings.composerOnWait !== false} onChange={(composerOnWait) => void update({ composerOnWait })} />
+        <SettingRow label="Abrir sozinha" hint="Precisa de você: o agente parou num menu ou pedido de permissão, terminou perguntando, ou pediu atenção (zn notify). Terminais recém-criados ou só terminando um trabalho não abrem a caixa, a não ser em &quot;Também quando terminar&quot;. Mostra a resposta formatada e as opções como botões; se você estiver digitando, aparece sem roubar o foco.">
+          <Choice label="Abrir sozinha" value={settings.composerOnWait === false ? "off" : settings.composerOnWait === true || !settings.composerOnWait ? "decision" : settings.composerOnWait}
+            options={[{ value: "decision", label: "Quando precisar de mim" }, { value: "done", label: "Também quando terminar" }, { value: "off", label: "Nunca" }]}
+            onChange={(composerOnWait) => void update({ composerOnWait })} />
         </SettingRow>
       </Section>
       <Section title="Permissões">

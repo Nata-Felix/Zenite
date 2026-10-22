@@ -3,6 +3,7 @@ import { ArrowUp, Check, ChevronDown, ClipboardPaste, FileText, Mic, Paperclip, 
 import type { ComposerTarget } from "../../shared/types";
 import { AntigravityIcon, ClaudeIcon, CodexIcon, GrokIcon, PowerShellIcon } from "./BrandIcon";
 import { useCommands } from "../commands";
+import { openLinkFromMarkdown, renderMarkdown } from "../markdown";
 import "./Composer.css";
 
 const ICONS = { codex: CodexIcon, claude: ClaudeIcon, antigravity: AntigravityIcon, grok: GrokIcon, shell: PowerShellIcon } as const;
@@ -12,7 +13,8 @@ function AgentIcon({ agent, size = 16 }: { agent: ComposerTarget["agent"]; size?
 }
 
 interface Attachment { path: string; name: string; preview?: string }
-interface Waiting { id: string; reason: "done" | "request"; message?: string; screen: string; choices: string[] }
+type Context = Awaited<ReturnType<typeof window.o.composer.context>>;
+interface Waiting extends Context { id: string; reason: "done" | "request" | "last"; message?: string }
 const IMAGE = /\.(png|jpe?g|gif|webp|bmp)$/i;
 let lastTargets: string[] = [];
 
@@ -42,15 +44,25 @@ export function Composer({ onJump }: { onJump: (terminalId: string) => void }) {
     const running = (await window.o.composer.targets()).filter((t) => t.running);
     setTargets(running);
     const keep = lastTargets.filter((id) => running.some((t) => t.id === id));
-    setChosen(focused && running.some((t) => t.id === focused) ? [focused] : keep.length ? keep : running[0] ? [running[0].id] : []);
+    const start = focused && running.some((t) => t.id === focused) ? [focused] : keep.length ? keep : running[0] ? [running[0].id] : [];
+    setChosen(start);
     setError(running.length ? "" : "Nenhum terminal aberto neste canvas.");
     setOpen(true);
     if (focus) setTimeout(() => input.current?.focus(), 30);
   };
-  const loadContext = async (id: string, reason: Waiting["reason"], message?: string) => {
-    const ctx = await window.o.composer.context(id).catch(() => ({ screen: "", choices: [] }));
+  const loadContext = async (id: string, reason: Waiting["reason"], message?: string, ctx?: Context) => {
+    ctx ??= await window.o.composer.context(id).catch(() => ({ screen: "", choices: [], reply: "", options: [], needsYou: false }));
+    if (reason === "last" && !ctx.reply && !ctx.choices.length) return setWaiting(null);
     setWaiting({ id, reason, message, ...ctx });
   };
+
+  // Aberta à mão (ou trocando o destino): mostra a última resposta do primeiro destino, formatada.
+  const firstChosen = chosen[0];
+  useEffect(() => {
+    if (!open || !firstChosen || (waiting && waiting.reason !== "last" && waiting.id === firstChosen)) return;
+    void loadContext(firstChosen, "last");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, firstChosen]);
 
   useCommands((c) => {
     if (c !== "open-composer") return;
@@ -73,15 +85,20 @@ export function Composer({ onJump }: { onJump: (terminalId: string) => void }) {
       // Quem saiu da espera por outro caminho (foi atendido no terminal) fecha a caixa aberta para ele.
       // Durante uma escolha pela caixa as setas já contam como resposta: não fecha, para mostrar o erro.
       if (!choosing.current) setWaiting((w) => {
-        if (w && !ids.includes(w.id) && state.current.open && !state.current.text.trim()) setOpen(false);
-        return w && ids.includes(w.id) ? w : null;
+        if (!w || w.reason === "last") return w; // aberta à mão: não fecha por causa dos outros
+        if (!ids.includes(w.id) && state.current.open && !state.current.text.trim()) setOpen(false);
+        return ids.includes(w.id) ? w : null;
       });
       const id = added[added.length - 1];
       if (!id || state.current.text.trim()) return;
-      if ((await window.o.workspaces.list()).settings?.composerOnWait === false) return;
+      // Só quando o agente precisa de você (pedido, menu, pergunta), a não ser que a opção diga outra coisa.
+      const mode = (await window.o.workspaces.list()).settings?.composerOnWait;
+      if (mode === false || mode === "off") return;
       const info = all[id];
+      const ctx = await window.o.composer.context(id).catch(() => null);
+      if (!ctx || (mode !== "done" && info.reason !== "request" && !ctx.needsYou)) return;
       await show(id, Date.now() - lastKey > 1500); // não rouba o foco de quem está digitando
-      await loadContext(id, info.reason, info.message);
+      await loadContext(id, info.reason, info.message, ctx);
     });
     return () => { off(); window.removeEventListener("keydown", onKey, true); };
   }, []);
@@ -161,11 +178,25 @@ export function Composer({ onJump }: { onJump: (terminalId: string) => void }) {
               <header>
                 {who && <AgentIcon agent={who.agent} />}
                 <strong>{who?.title ?? "Agente"}</strong>
-                <span>{waiting.reason === "request" ? "pede sua atenção" : "está esperando você"}</span>
+                <span>{waiting.reason === "request" ? "pede sua atenção" : waiting.reason === "last" ? "última resposta" : waiting.needsYou ? "precisa de você" : "terminou"}</span>
                 <button className="composer-link" onClick={() => { const id = waiting.id; setOpen(false); setWaiting(null); onJump(id); }}>Ver no canvas</button>
               </header>
               {waiting.message && <p className="composer-request">{waiting.message}</p>}
-              {waiting.screen && <pre className="composer-screen">{waiting.screen}</pre>}
+              {waiting.choices.length === 0 && waiting.reply
+                // Sanitizado pelo DOMPurify em renderMarkdown.
+                ? <div className="composer-reply markdown" onClick={openLinkFromMarkdown} dangerouslySetInnerHTML={{ __html: renderMarkdown(waiting.reply) }} />
+                : waiting.screen && <pre className="composer-screen">{waiting.screen}</pre>}
+              {waiting.options.length > 0 && (
+                <div className="composer-choices">
+                  {waiting.options.map((o) => (
+                    <button key={o.key} onClick={async () => {
+                      const r = await window.o.composer.send([waiting.id], `${o.key}. ${o.label}`, []);
+                      if (!r.ok) return setError(r.errors.join(" · "));
+                      setOpen(false); setWaiting(null);
+                    }}><b>{o.key}</b> {o.label}</button>
+                  ))}
+                </div>
+              )}
               {waiting.choices.length > 0 && (
                 <div className="composer-choices">
                   {waiting.choices.map((c) => (
