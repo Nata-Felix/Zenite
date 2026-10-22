@@ -22,3 +22,12 @@ test("no Windows, a leitura real traz o PATH do usuário", { skip: process.platf
   assert.ok(added.length > 0);
   assert.ok(added.some((p) => /system32/i.test(p)));
 });
+
+test("pastas conhecidas dos CLIs entram mesmo fora do PATH, só se existirem", async () => {
+  const { agentDirs } = await import(pathToFileURL(outfile).href);
+  const env = { USERPROFILE: "C:\Users\a", APPDATA: "C:\Users\a\AppData\Roaming", LOCALAPPDATA: "C:\Users\a\AppData\Local" };
+  const dirs = agentDirs(env, (p) => !p.endsWith("npm"));
+  assert.equal(dirs.length, 2);
+  assert.ok(dirs[0].endsWith(join(".local", "bin")));
+  assert.ok(dirs[1].endsWith(join("agy", "bin")));
+});

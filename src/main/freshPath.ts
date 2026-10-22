@@ -1,4 +1,6 @@
 import { execFile, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * PATH atual do Windows (sistema + usuário). O Zênite herda o PATH de quem o abriu: se um programa
@@ -39,8 +41,21 @@ export function refreshPath(platform: NodeJS.Platform = process.platform): void 
 
 const norm = (p: string) => p.replace(/[\\/]+$/, "").toLowerCase();
 
-/** Pastas do PATH atual do Windows que faltam em `current`. */
-export function missingFrom(current: string, fresh: string[] = cached): string[] {
+/**
+ * Pastas onde os instaladores dos CLIs costumam pôr o programa, mesmo quando não entram no PATH
+ * (ex.: o instalador do Claude Code usa .localin e às vezes não o acrescenta). Só as que existem.
+ */
+export function agentDirs(env: NodeJS.ProcessEnv = process.env, exists: (p: string) => boolean = existsSync): string[] {
+  const dirs = [
+    env.USERPROFILE && join(env.USERPROFILE, ".local", "bin"),
+    env.APPDATA && join(env.APPDATA, "npm"),
+    env.LOCALAPPDATA && join(env.LOCALAPPDATA, "agy", "bin"),
+  ];
+  return dirs.filter((d): d is string => !!d && exists(d));
+}
+
+/** Pastas do PATH atual do Windows (e as dos CLIs) que faltam em `current`. */
+export function missingFrom(current: string, fresh: string[] = [...cached, ...agentDirs()]): string[] {
   const have = new Set(current.split(";").map(norm));
   const out: string[] = [];
   for (const p of fresh) {
