@@ -49,7 +49,7 @@ npm run test:ui
 
 | Área | Cenários | O que observar |
 |---|---|---|
-| Canvas | `black-hole-organize`, `black-holes`, `canvas-clipboard`, `canvas-undo`, `node-options`, `round-elements` | Organização, agrupamento, copiar/colar, desfazer e opções dos elementos. `round-elements --real-app` inclui o cenário compartilhado de personalização. |
+| Canvas | `summary-jump`, `black-hole-organize`, `black-holes`, `canvas-clipboard`, `canvas-undo`, `node-options`, `round-elements` | Organização, agrupamento, copiar/colar, desfazer e opções dos elementos. `round-elements --real-app` inclui o cenário compartilhado de personalização. |
 | Aparência e interação | `connection-effects`, `terminal-mouse` | Animações, arraste e interação do mouse; `terminal-mouse --screen=1080p` testa outra resolução. |
 | Fluxos | `chronos`, `code-flow`, `flow-actions`, `flow-astros` | Agendamento, código, ações e astros. |
 | Segurança e agentes | `app-dialog`, `away-summary`, `composer`, `composer-wait`, `canvas-security`, `canvas-sol`, `sol-canvas-welcome` | Diálogos, autoridade do Sol, bloqueios e instruções iniciais. `canvas-security` tenta iniciar terminais em Sandbox e depende da preparação/configuração do isolamento. |

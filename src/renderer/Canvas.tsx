@@ -921,7 +921,10 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
       return;
     }
     focusTarget.current = null;
-    void flow.fitView({ nodes: [{ id }], padding: 0.25, duration: 350, maxZoom: 1 });
+    // Na visão resumida, ir até um elemento é abri-lo no lugar do que estiver aberto (o real fica
+    // escondido atrás do cartão: enquadrar a posição real mostraria o elemento errado).
+    if (summaryRef.current) openSummary(id);
+    else void flow.fitView({ nodes: [{ id }], padding: 0.25, duration: 350, maxZoom: 1 });
     setNodes((ns) => ns.map((n) => (n.selected !== (n.id === id) ? { ...n, selected: n.id === id } : n)));
   };
   useEffect(() => {
