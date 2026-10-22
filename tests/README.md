@@ -55,7 +55,7 @@ npm run test:ui
 | Segurança e agentes | `app-dialog`, `canvas-security`, `canvas-sol`, `sol-canvas-welcome` | Diálogos, autoridade do Sol, bloqueios e instruções iniciais. `canvas-security` tenta iniciar terminais em Sandbox e depende da preparação/configuração do isolamento. |
 | Integrações e dados | `canvas-integrations`, `galaxy-archive` | HTTP/MCP/skills e exportação/importação de galáxias. |
 | Navegação | `web-devtools` | Inspeção de sites e ferramentas do navegador. |
-| Isolamento | `isolated-runtime` | Contêiner Docker real e permissões na interface; requer Docker e imagem preparada. |
+| Isolamento | `docker-install`, `isolated-runtime` | `docker-install`: isolamento desligado por padrão e oferta de instalar o Docker ao ligar (docker e WinGet simulados). `isolated-runtime`: contêiner Docker real e permissões na interface; requer Docker e imagem preparada. |
 
 Alguns cenários substituem respostas de diálogos, provedores ou instaladores por simulações. Consulte os arquivos e os [roteiros de validação](../docs/testing/) para distinguir essas verificações de execuções externas reais.
 

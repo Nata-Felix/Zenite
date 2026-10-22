@@ -3,6 +3,7 @@ import type { TabProps } from "../SettingsDialog";
 import { Choice, Section, SettingRow, Switch } from "./controls";
 import { SkillsSection } from "./SkillsSection";
 import { OpenRouterSection } from "./OpenRouterSection";
+import { confirmDialog } from "../AppDialog";
 
 export function GeneralTab({ settings, update }: TabProps) {
   const [blocking, setBlocking] = useState<boolean | null>(null);
@@ -115,17 +116,36 @@ export function NotificationsTab({ settings, update }: TabProps) {
 }
 
 export function AgentsTab({ settings, update }: TabProps) {
-  const [isolation, setIsolation] = useState<{ available: boolean; prepared: boolean; error?: string } | null>(null);
+  const [isolation, setIsolation] = useState<{ available: boolean; prepared: boolean; installed: boolean; error?: string } | null>(null);
   const [preparing, setPreparing] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [isolationError, setIsolationError] = useState("");
   useEffect(() => { let alive = true; void window.o.workspaces.isolationStatus().then(s => alive && setIsolation(s)); return () => { alive = false; }; }, []);
+  // O isolamento roda no Docker: ao ligar sem ele instalado, oferece instalar; recusar deixa desligado.
+  const setIsolated = async (on: boolean) => {
+    setIsolationError("");
+    if (!on) return void update({ isolatedAgents: false });
+    const status = await window.o.workspaces.isolationStatus();
+    setIsolation(status);
+    if (!status.installed) {
+      if (!await confirmDialog({ title: "Instalar o Docker Desktop?", message: "O ambiente isolado precisa do Docker, que não está instalado neste computador. O Zênite pode instalar o Docker Desktop pelo WinGet: o download tem algumas centenas de MB, aceita os termos do pacote, pode pedir autorização do Windows e, em alguns computadores, reiniciar para ativar o WSL.", cancel: "Agora não", ok: "Instalar Docker" })) return;
+      setInstalling(true);
+      try {
+        const result = await window.o.workspaces.installDocker();
+        if (!result.ok) return setIsolationError(result.error ?? "Não foi possível instalar o Docker.");
+        setIsolation(await window.o.workspaces.isolationStatus());
+      } catch (e) { return setIsolationError(String(e)); } finally { setInstalling(false); }
+    }
+    void update({ isolatedAgents: true });
+  };
   return (
     <>
       <Section title="Proteção pelo canvas">
         <SettingRow label="Executar terminais em ambiente isolado" hint="Os arquivos do computador não ficam disponíveis diretamente. Use elementos conectados ou solicite acesso ao Zênite. O perfil de login de cada conta é preservado entre aberturas. A mudança encerra os terminais; abra-os novamente. O primeiro uso exige preparar o ambiente e fazer login nele. Aplicativos e comandos precisam ser compatíveis com Linux.">
-          <Switch label="Executar terminais em ambiente isolado" checked={settings.isolatedAgents !== false} onChange={isolatedAgents => void update({ isolatedAgents })} />
+          <Switch label="Executar terminais em ambiente isolado" checked={settings.isolatedAgents === true} onChange={on => void setIsolated(on)} />
         </SettingRow>
-        {settings.isolatedAgents === false && <p className="integration-error">Isolamento desativado: os terminais nativos podem acessar o computador diretamente, conforme as permissões do próprio agente.</p>}
+        {installing && <p className="setting-hint" role="status">Instalando o Docker Desktop… pode levar alguns minutos.</p>}
+        {settings.isolatedAgents !== true && !installing && <p className="setting-hint">Isolamento desligado: os terminais acessam o computador diretamente, conforme as permissões do próprio agente. Ligar exige o Docker.</p>}
         <SettingRow label={preparing ? "Preparando o ambiente…" : isolation?.prepared ? "Ambiente preparado" : "Preparar o primeiro uso"} hint="Requer Docker Desktop em execução. A preparação baixa os agentes e pode levar alguns minutos. Os logins existentes no computador não são copiados.">
           <button className="ghost" disabled={preparing} onClick={async () => { setPreparing(true); setIsolationError(""); try { const result = await window.o.workspaces.prepareIsolation(); if (!result.ok) setIsolationError(result.error ?? "Não foi possível preparar."); setIsolation(await window.o.workspaces.isolationStatus()); } catch (e) { setIsolationError(String(e)); } finally { setPreparing(false); } }}>Preparar ambiente</button>
         </SettingRow>
@@ -135,7 +155,7 @@ export function AgentsTab({ settings, update }: TabProps) {
         <SettingRow label="Processadores de cada terminal isolado" hint="Núcleos (threads) por contêiner. Vale para os terminais abertos depois da mudança.">
           <Choice label="Processadores de cada terminal isolado" value={settings.isolatedCpus ?? 4} options={[1, 2, 4, 6, 8].map(cpus => ({ value: cpus, label: String(cpus) }))} onChange={isolatedCpus => void update({ isolatedCpus })} />
         </SettingRow>
-        {isolation && !isolation.available && <p className="setting-hint">O ambiente de isolamento não está disponível. Abra o Docker Desktop e tente novamente.</p>}
+        {settings.isolatedAgents === true && isolation && !isolation.available && <p className="setting-hint">{isolation.installed ? "O ambiente de isolamento não está disponível. Abra o Docker Desktop (no primeiro uso, aceite os termos dele) e tente novamente." : "O Docker não está instalado. Desligue e ligue a opção para instalar."}</p>}
         {isolationError && <p className="integration-error" role="alert">{isolationError.slice(-1500)}</p>}
         <SettingRow label="Permissões lembradas nesta sessão" hint="Revoga as autorizações de acesso direto concedidas aos terminais. Sempre perguntar não guarda autorizações automáticas; Sandbox não permite acesso fora dos elementos conectados.">
           <button className="ghost" onClick={() => void window.o.workspaces.revokeDirectAccess()}>Revogar permissões</button>

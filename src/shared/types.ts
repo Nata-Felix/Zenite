@@ -477,7 +477,7 @@ export interface WorkspaceIndex {
 }
 
 export interface AppSettings {
-  /** Terminais em contêiner sem acesso direto ao disco do host. Padrão: habilitado. */
+  /** Terminais em contêiner sem acesso direto ao disco do host. Depende do Docker; padrão: desligado. */
   isolatedAgents?: boolean;
   /** Memória (GB) e processadores de cada terminal isolado. Padrão: 6 GB e 4. */
   isolatedMemoryGb?: number;
@@ -702,8 +702,10 @@ export interface OApi {
     killProcess(terminalId: string, pid: number): Promise<boolean>;
   };
   workspaces: {
-    isolationStatus(): Promise<{ available: boolean; prepared: boolean; error?: string }>;
+    isolationStatus(): Promise<{ available: boolean; prepared: boolean; installed: boolean; error?: string }>;
     prepareIsolation(): Promise<{ ok: boolean; error?: string }>;
+    /** Instala o Docker Desktop pelo WinGet (a pessoa confirma antes, na interface). */
+    installDocker(): Promise<{ ok: boolean; error?: string }>;
     revokeDirectAccess(): Promise<void>;
     list(): Promise<WorkspaceIndex>;
     create(name: string, dir: string): Promise<WorkspaceIndex>;

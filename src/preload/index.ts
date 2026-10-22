@@ -36,6 +36,7 @@ const api: OApi = {
   workspaces: {
     isolationStatus: () => ipcRenderer.invoke("isolation:status"),
     prepareIsolation: () => ipcRenderer.invoke("isolation:prepare"),
+    installDocker: () => ipcRenderer.invoke("isolation:install-docker"),
     revokeDirectAccess: () => ipcRenderer.invoke("isolation:revoke"),
     list: () => ipcRenderer.invoke("workspaces:list"),
     create: (name, dir) => ipcRenderer.invoke("workspaces:create", name, dir),

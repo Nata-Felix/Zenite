@@ -12,7 +12,7 @@ import { plural } from "../shared/plural";
 import { AttentionTracker, type Attention } from "./attention";
 import { Accounts } from "./accounts";
 import { CanvasAccess } from "./canvasAccess";
-import { IsolatedRuntime } from "./isolatedRuntime";
+import { installDocker, IsolatedRuntime } from "./isolatedRuntime";
 import { isolatedFile } from "./isolatedFiles";
 import { cliTheme } from "./cliTheme";
 import { installGuide, uninstallGuide } from "./agentGuide";
@@ -354,7 +354,7 @@ app.whenReady().then(async () => {
     if (!isolationPort) throw new Error("Ponte do canvas ainda indisponível.");
     return `http://host.docker.internal:${isolationPort}`;
   }, () => ({ memoryGb: settings().isolatedMemoryGb, cpus: settings().isolatedCpus }));
-  const protectedTerminals = () => settings().isolatedAgents !== false;
+  const protectedTerminals = () => settings().isolatedAgents === true;
 
   const ptys = new PtyManager(
     {
@@ -599,6 +599,7 @@ app.whenReady().then(async () => {
   isolationPort = await control.listenContainers();
   ipcMain.handle("isolation:status", () => isolatedRuntime.status());
   ipcMain.handle("isolation:prepare", () => isolatedRuntime.prepare());
+  ipcMain.handle("isolation:install-docker", (e) => { requireMainUI(e); return installDocker(); });
   ipcMain.handle("isolation:revoke", () => directAccess.revoke());
   ipcMain.handle("pty:runtime", (_e, id: string) => ({ isolated: isolatedRuntime.has(id), running: ptys.has(id) }));
 

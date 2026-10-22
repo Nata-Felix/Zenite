@@ -3,6 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CreatePtyRequest } from "../shared/types";
+import { wingetPath } from "./codeRuntime";
+import { readPathNow } from "./freshPath";
 import type { ShellLaunch } from "./shell";
 
 export const AGENT_IMAGE = "zenite-agents:3";
@@ -13,6 +15,20 @@ export const ISOLATED_GUIDE = `Você está em um terminal isolado do Zênite. Su
 Os arquivos do computador não estão montados aqui. Para obter um arquivo, use zn access read CAMINHO --out arquivo-local; para gravar no computador, use zn access write CAMINHO --file arquivo-local. Para listar uma pasta use zn access list CAMINHO. O Zênite autoriza conforme as conexões do canvas e pede Permitir/Cancelar fora delas. Não há comando para executar processos no computador hospedeiro.
 A pasta /exchange é compartilhada entre os terminais isolados da mesma galáxia, de qualquer conta: use-a para trocar arquivos entre agentes. O perfil /home/agent é persistente e separado por conta. Faça login uma primeira vez aqui. No Codex, use codex login --device-auth para autenticar pelo navegador sem porta local. Fechar o terminal preserva o perfil. Nunca tente acessar perfis de outras contas.
 O isolamento continua valendo em Controle total e ao virar Sol. O Sol organiza o canvas usando zn, sem ler o armazenamento interno do aplicativo.`;
+
+const DOCKER_DESKTOP = join(process.env.ProgramFiles ?? "C:\\Program Files", "Docker", "Docker", "Docker Desktop.exe");
+
+/** Instala o Docker Desktop pelo WinGet. Baixa centenas de MB e pode pedir autorização do Windows. */
+export async function installDocker(): Promise<{ ok: boolean; error?: string }> {
+  if (process.platform !== "win32") return { ok: false, error: "Instale o Docker pelo gerenciador de pacotes do sistema e tente novamente." };
+  const winget = wingetPath();
+  if (!winget) return { ok: false, error: "O WinGet não está disponível. Instale o Docker Desktop pelo site docker.com ou pelo Instalador de Aplicativo do Windows." };
+  return new Promise(resolve => execFile(winget, ["install", "--id", "Docker.DockerDesktop", "--exact", "--source", "winget", "--silent", "--no-upgrade", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"], { windowsHide: true, timeout: 30 * 60_000, maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr) => {
+    readPathNow();
+    if (!error || existsSync(DOCKER_DESKTOP)) return resolve({ ok: true });
+    resolve({ ok: false, error: (String(stderr).trim() || String(stdout).trim() || error.message).slice(-1000) });
+  }));
+}
 
 export interface IsolatedLaunch extends ShellLaunch { cwd: string; env: Record<string, string>; close(): void }
 export function profileVolume(account: string, agent: string): string {
@@ -60,13 +76,21 @@ export class IsolatedRuntime {
     this.retryRemovals();
   }
 
-  async status(): Promise<{ available: boolean; prepared: boolean; error?: string }> {
-    const call = (args: string[]) => new Promise<string>((resolve, reject) => execFile("docker", args, { windowsHide: true, timeout: 5000 }, (error, stdout, stderr) => error ? reject(new Error(String(stderr).trim() || error.message)) : resolve(String(stdout).trim())));
+  async status(): Promise<{ available: boolean; prepared: boolean; installed: boolean; error?: string }> {
+    let missing = false;
+    const call = (args: string[]) => new Promise<string>((resolve, reject) => execFile("docker", args, { windowsHide: true, timeout: 5000 }, (error, stdout, stderr) => {
+      if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") missing = true;
+      return error ? reject(new Error(String(stderr).trim() || error.message)) : resolve(String(stdout).trim());
+    }));
     try {
       if (await call(["info", "--format", "{{.OSType}}"]) !== "linux") throw new Error("O ambiente precisa do Docker com contêineres Linux.");
-      try { await call(["image", "inspect", AGENT_IMAGE]); return { available: true, prepared: true }; }
-      catch { return { available: true, prepared: false }; }
-    } catch (error) { return { available: false, prepared: false, error: (error as Error).message }; }
+      try { await call(["image", "inspect", AGENT_IMAGE]); return { available: true, prepared: true, installed: true }; }
+      catch { return { available: true, prepared: false, installed: true }; }
+    } catch (error) {
+      // Sem o comando docker no PATH e sem o Docker Desktop na pasta padrão: não está instalado (não só fechado).
+      const installed = !missing || existsSync(DOCKER_DESKTOP);
+      return { available: false, prepared: false, installed, error: installed ? (error as Error).message : "O Docker não está instalado neste computador." };
+    }
   }
 
   prepare(progress?: (line: string) => void): Promise<{ ok: boolean; error?: string }> {

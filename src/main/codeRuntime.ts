@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync } from "node:fs";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join } from "node:path";
@@ -59,11 +59,17 @@ export async function findCodeRuntime(language: CodeLanguage, signal?: AbortSign
   }
 }
 
+/** Caminho do WinGet. É um atalho de execução do WindowsApps: existsSync (stat) não o enxerga, lstat sim. */
+export function wingetPath(): string | undefined {
+  const file = join(process.env.LOCALAPPDATA ?? "", "Microsoft", "WindowsApps", "winget.exe");
+  try { lstatSync(file); return file; } catch { return undefined; }
+}
+
 async function installCodeRuntime(language: CodeLanguage, signal?: AbortSignal): Promise<void> {
   const info = languageInfo(language);
   if (process.platform !== "win32") throw new Error(`Instale ${info.name} pelo gerenciador de pacotes do sistema e tente novamente.`);
-  const winget = join(process.env.LOCALAPPDATA ?? "", "Microsoft", "WindowsApps", "winget.exe");
-  if (!existsSync(winget)) throw new Error("O WinGet não está disponível. Instale o Instalador de Aplicativo do Windows e tente novamente.");
+  const winget = wingetPath();
+  if (!winget) throw new Error("O WinGet não está disponível. Instale o Instalador de Aplicativo do Windows e tente novamente.");
   await command(winget, ["install", "--id", info.package, "--exact", "--source", "winget", "--silent", "--no-upgrade", "--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"], { signal, timeout: 600_000 });
   readPathNow();
 }
