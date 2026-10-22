@@ -38,7 +38,7 @@ def card(chapter):
     title = textfile(chapter['id'] + '-brand.txt', 'Zênite')
     subtitle = textfile(chapter['id'] + '-subtitle.txt', chapter['title'] if end else 'Vários agentes. Um só espaço para trabalhar.')
     kicker = textfile(chapter['id'] + '-kicker.txt', 'DA IDEIA AO PRÓXIMO PASSO' if not end else 'EXPERIMENTE O SEU PRÓXIMO PROJETO')
-    foot = textfile(chapter['id'] + '-foot.txt', 'PARA WINDOWS     ·     github.com/Nata-Felix/O')
+    foot = textfile(chapter['id'] + '-foot.txt', 'PARA WINDOWS     ·     github.com/Nata-Felix/Zenite')
     filters = [
         '[0:v]drawgrid=w=110:h=110:t=1:c=0x8ea2ff@0.07',
         "crop=1920:1080:x='60+20*sin(t/8)':y='60+15*cos(t/9)'",

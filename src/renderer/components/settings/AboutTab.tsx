@@ -4,7 +4,7 @@ import iconUrl from "../../../../build/icon.svg";
 import { Section, SettingRow } from "./controls";
 import { UpdateSection } from "../UpdateDialog";
 
-const REPO = "https://github.com/Nata-Felix/O";
+const REPO = "https://github.com/Nata-Felix/Zenite";
 
 export function AboutTab() {
   const [info, setInfo] = useState<{ version: string; electron: string; platform: string } | null>(null);

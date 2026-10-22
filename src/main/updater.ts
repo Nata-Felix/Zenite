@@ -25,7 +25,7 @@ export function notesToMarkdown(notes: UpdateInfo["releaseNotes"]): string {
  * Onde ficam os Releases. Fixo no código: a atualização leve troca só o app.asar e mantém o
  * app-update.yml antigo da instalação, que até a 0.28 apontava para Nata-Felix/zenite-releases.
  */
-const RELEASES = { owner: "Nata-Felix", repo: "O" };
+const RELEASES = { owner: "Nata-Felix", repo: "Zenite" };
 
 /** Pasta de uma versão no Release. ZENITE_UPDATE_FEED aponta para um servidor local nos testes. */
 function releaseBase(version: string): string {

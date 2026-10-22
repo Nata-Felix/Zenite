@@ -11,7 +11,7 @@ Ao terminar cada item, marque `[x]`, anote o que viu e faça commit pequeno com 
 ## 0. Preparar
 
 ```powershell
-git clone https://github.com/Nata-Felix/O.git zenite
+git clone https://github.com/Nata-Felix/Zenite.git zenite
 cd zenite
 npm install          # baixa o Electron e o node-pty do Windows (prebuilt, sem Visual Studio)
 npm run typecheck
@@ -175,7 +175,7 @@ npm run dist:win     # gera dist\Zenite-Setup-<versão>.exe (não precisa de Win
 
 - Restaurar as sessões dos agentes ao reabrir o app.
 - ~~Atualizações automáticas~~: feito (`src/main/updater.ts`, electron-updater). O app procura
-  versão nova nos Releases do repositório público `Nata-Felix/O`, baixa em segundo
+  versão nova nos Releases do repositório público `Nata-Felix/Zenite`, baixa em segundo
   plano e instala ao sair (ou em "Reiniciar agora"). Falta publicar a primeira versão com o workflow (`.github/workflows/release-win.yml`).
 - WSL, SSH e Docker como ambientes de terminal.
 - Pull requests do GitHub/GitLab pela CLI `gh`/`glab`.

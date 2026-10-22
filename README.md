@@ -3,14 +3,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Nata-Felix/O/releases/latest"><img src="https://img.shields.io/github/v/release/Nata-Felix/O?label=vers%C3%A3o&color=8ea2ff" alt="Versão"></a>
-  <a href="https://github.com/Nata-Felix/O/releases"><img src="https://img.shields.io/github/downloads/Nata-Felix/O/total?label=downloads&color=4fd1a5" alt="Downloads"></a>
+  <a href="https://github.com/Nata-Felix/Zenite/releases/latest"><img src="https://img.shields.io/github/v/release/Nata-Felix/Zenite?label=vers%C3%A3o&color=8ea2ff" alt="Versão"></a>
+  <a href="https://github.com/Nata-Felix/Zenite/releases"><img src="https://img.shields.io/github/downloads/Nata-Felix/Zenite/total?label=downloads&color=4fd1a5" alt="Downloads"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4" alt="Windows 10 e 11">
   <a href="LICENSE"><img src="https://img.shields.io/badge/licen%C3%A7a-Apache--2.0-b18cff" alt="Licença Apache-2.0"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/Nata-Felix/O/releases/latest"><b>⬇ Baixar para Windows</b></a>
+  <a href="https://github.com/Nata-Felix/Zenite/releases/latest"><b>⬇ Baixar para Windows</b></a>
   &nbsp;·&nbsp; <a href="#primeiros-passos">Primeiros passos</a>
   &nbsp;·&nbsp; <a href="docs/guia.md">Guia completo</a>
 </p>
@@ -135,7 +135,7 @@ Detalhes na [política de segurança](SECURITY.md).
 
 ## Primeiros passos
 
-1. **Baixe e instale** o `Zenite-Instalador-<versão>.exe` em [Releases](https://github.com/Nata-Felix/O/releases/latest).
+1. **Baixe e instale** o `Zenite-Instalador-<versão>.exe` em [Releases](https://github.com/Nata-Felix/Zenite/releases/latest).
 2. **Crie uma galáxia** apontando para a pasta do seu projeto.
 3. **Clique em + Novo** e abra um terminal com o seu agente (Claude Code, Codex…).
 4. **Promova um terminal a Sol** e peça o que precisa. Ou monte você mesmo: crie notas e

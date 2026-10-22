@@ -74,7 +74,7 @@ def end_card(name, dur):
              f"[bg][logo]overlay=(W-w)/2:250+20*exp(-6*t)[v];"
              f"[v]{headline('Zênite', 132, 470, 0.25)},"
              f"{headline('Vários agentes. Um só espaço.', 48, 640, 0.6, REGULAR, '0xc9d2ff')},"
-             f"{headline('Grátis para Windows  ·  github.com/Nata-Felix/O', 30, 790, 1.1, REGULAR, '0x8796bc')},"
+             f"{headline('Grátis para Windows  ·  github.com/Nata-Felix/Zenite', 30, 790, 1.1, REGULAR, '0x8796bc')},"
              f"fade=t=out:st={dur - 1.2}:d=1.2[out]")
     run(['-f', 'lavfi', '-i', f'color=c={BG}:s=1920x1080:r={FPS}:d={dur}', '-loop', '1', '-i', ROOT / 'build/icon.png',
          '-filter_complex', graph, '-map', '[out]', '-frames:v', frames, *encode(name)])

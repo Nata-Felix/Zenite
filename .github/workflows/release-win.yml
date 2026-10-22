@@ -1,6 +1,6 @@
 # Publica o instalador do Windows quando uma tag v* é enviada
 # (ex.: git tag v0.21.0 && git push origin v0.21.0).
-# O instalador vai para os Releases deste mesmo repositório (Nata-Felix/O), público, onde o app
+# O instalador vai para os Releases deste mesmo repositório (Nata-Felix/Zenite), público, onde o app
 # instalado procura atualização. O GITHUB_TOKEN padrão basta.
 name: Release Windows
 
@@ -31,7 +31,7 @@ jobs:
       # e o app instalado baixa na atualização completa; app-*.tar.gz e app-update.json, na leve.
       - run: |
           $v = $env:GITHUB_REF_NAME.TrimStart('v')
-          gh release create $env:GITHUB_REF_NAME --repo Nata-Felix/O --title "Zênite $v" --notes-file build/release-notes.md --latest
-          gh release upload $env:GITHUB_REF_NAME (Get-Item dist/Zenite-Instalador-*.exe).FullName (Get-Item dist/Zenite-Setup-*.exe).FullName (Get-Item dist/Zenite-Setup-*.exe.blockmap).FullName dist/latest.yml dist/app-update.json (Get-Item dist/app-*.tar.gz).FullName --repo Nata-Felix/O --clobber
+          gh release create $env:GITHUB_REF_NAME --repo ${{ github.repository }} --title "Zênite $v" --notes-file build/release-notes.md --latest
+          gh release upload $env:GITHUB_REF_NAME (Get-Item dist/Zenite-Instalador-*.exe).FullName (Get-Item dist/Zenite-Setup-*.exe).FullName (Get-Item dist/Zenite-Setup-*.exe.blockmap).FullName dist/latest.yml dist/app-update.json (Get-Item dist/app-*.tar.gz).FullName --repo ${{ github.repository }} --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -59,7 +59,7 @@ def end_card(name, dur):
              f"[bg][logo]overlay=(W-w)/2:240+20*exp(-6*t)[v];"
              f"[v]{title}:text='Zênite':fontsize=128:fontcolor=white:x=(w-text_w)/2:y=460+30*exp(-9*max(t-0.3\\,0)):alpha='min(1\\,max(0\\,(t-0.3)*3))',"
              f"drawtext=fontfile='C\\:/Windows/Fonts/segoeui.ttf':text='Seus agentes, trabalhando juntos.':fontsize=46:fontcolor=0xc9d2ff:x=(w-text_w)/2:y=630:alpha='min(1\\,max(0\\,(t-0.8)*3))',"
-             f"drawtext=fontfile='C\\:/Windows/Fonts/segoeui.ttf':text='Grátis para Windows  ·  github.com/Nata-Felix/O':fontsize=30:fontcolor=0x8796bc:x=(w-text_w)/2:y=780:alpha='min(1\\,max(0\\,(t-1.3)*3))',"
+             f"drawtext=fontfile='C\\:/Windows/Fonts/segoeui.ttf':text='Grátis para Windows  ·  github.com/Nata-Felix/Zenite':fontsize=30:fontcolor=0x8796bc:x=(w-text_w)/2:y=780:alpha='min(1\\,max(0\\,(t-1.3)*3))',"
              f"fade=t=out:st={dur - 1}:d=1[out]")
     run(['-f', 'lavfi', '-i', f'color=c=0x07090f:s=1920x1080:r={FPS}:d={dur}', '-loop', '1', '-i', ROOT / 'build/icon.png',
          '-filter_complex', graph, '-map', '[out]', '-frames:v', frames, '-an', '-r', FPS, '-c:v', 'libx264', '-preset', 'medium',

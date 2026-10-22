@@ -56,7 +56,7 @@ consulte também a [política de segurança](../SECURITY.md).
   que fica aberto, sites não roubam o mouse durante arrastes.
 
 - **Instalador e atualização automática**: `Zenite-Setup-<versão>.exe` instala ou atualiza por
-  cima. O app instalado procura versão nova nos Releases de `Nata-Felix/O`, baixa
+  cima. O app instalado procura versão nova nos Releases de `Nata-Felix/Zenite`, baixa
   em segundo plano e instala ao sair, ou na hora com "Reiniciar agora". Em Configurações → Sobre,
   "Procurar atualização". Para publicar: veja [Publicar uma versão](#publicar-uma-versão).
 - **Atualização leve**: se a versão nova usa o mesmo Electron da instalada, o app baixa só os
@@ -368,7 +368,7 @@ Se o PowerShell 7 (`pwsh`) estiver instalado, ele é usado; senão, o Windows Po
 ## Publicar uma versão
 
 Suba a versão em `package.json`. `npm run dist:win` gera em `dist/` tudo que vai no Release
-`v<versão>` de `Nata-Felix/O` (ou envie uma tag `v*` e o workflow
+`v<versão>` de `Nata-Felix/Zenite` (ou envie uma tag `v*` e o workflow
 `.github/workflows/release-win.yml` publica os cinco):
 
 | Arquivo | Para quê |
