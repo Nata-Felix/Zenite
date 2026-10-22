@@ -1872,9 +1872,9 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
             <NodeOptions
               key={optionNode.id}
               node={optionNode} nodes={nodes} edges={edges} linking={line?.source === optionNode.id}
-              onEdit={(title, appearance) => {
+              onEdit={(title, appearance, role) => {
                 actions.snapshot();
-                setNodes((ns) => ns.map((n) => n.id === optionNode.id && n.data.terminal ? { ...n, data: { ...n.data, terminal: { ...n.data.terminal, title: uniqueTitle(title, ns, n.id), appearance } } } : n));
+                setNodes((ns) => ns.map((n) => n.id === optionNode.id && n.data.terminal ? { ...n, data: { ...n.data, terminal: { ...n.data.terminal, title: uniqueTitle(title, ns, n.id), appearance, role: role || undefined } } } : n));
               }}
               onReload={() => setNodes((ns) => ns.map((n) => n.id === optionNode.id && !n.data.terminalLoading ? { ...n, data: { ...n.data, reloadVersion: (n.data.reloadVersion ?? 0) + 1, terminalLoading: true } } : n))}
               onFocus={requestFocus}

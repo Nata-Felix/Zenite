@@ -333,6 +333,7 @@ export function applyCanvasOps(state: CanvasState, ops: CanvasOp[], ctx: OpsCont
             ...(t.accountName ? { accountName: t.accountName } : {}),
             ...(t.provider ? { provider: t.provider } : {}),
             ...(t.appearance ? { appearance: t.appearance } : {}),
+            ...(t.role?.trim() ? { role: t.role.trim().slice(0, 40) } : {}),
           };
           node = { id, kind, ...place(size, op), ...size, terminal, z: topZ() };
         } else {
@@ -477,6 +478,7 @@ export function describeCanvas(state: CanvasState): { nodes: object[]; edges: ob
       height: Math.round(n.height),
       ...(n.z !== undefined ? { z: n.z } : {}),
       ...(n.terminal?.sun ? { sun: true } : {}),
+      ...(n.terminal?.role ? { role: n.terminal.role } : {}),
       ...(n.element?.flow ? { flow: n.element.flow.type } : {}),
       ...(n.draw ? { shape: n.draw.shape } : {}),
     })),

@@ -81,3 +81,4 @@
 .composer-reply pre code { background: none; padding: 0; }
 .composer-reply h1, .composer-reply h2, .composer-reply h3 { font-size: 14px; margin: 6px 0; }
 .composer-choices button b { color: var(--accent); margin-right: 4px; }
+.composer-role { margin-left: 6px; padding: 0 6px; border-radius: 5px; background: var(--hover); color: var(--muted); font-style: normal; font-size: 11px; font-weight: 600; }

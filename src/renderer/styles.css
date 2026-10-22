@@ -1564,6 +1564,18 @@ button {
 .task-bloqueado { --task: #f87171; }
 .task-pronto { --task: #4ade80; }
 
+.role-chip {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--hover);
+  border: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
 .account-chip {
   flex-shrink: 0;
   padding: 1px 8px;

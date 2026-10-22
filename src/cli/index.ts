@@ -144,7 +144,7 @@ Ctrl+Z do usuário como um passo só. Nomes ou ids (#ab12cd34, do zn canvas) ser
                                       primeira mensagem quando o agente abrir. --universe: nasce no universo.
   zn dismiss "Nome"                    Fecha o terminal e tira do canvas
   zn replace "Nome" --agent ... [--account ...]     Troca agente/conta no mesmo lugar, com as mesmas ligações
-  zn terminal edit "Nome" [--color #hex] [--font-size N] [--model M] [--effort E] [--command "..."] [--cwd PASTA]
+  zn terminal edit "Nome" [--role "Função"] [--color #hex] [--font-size N] [--model M] [--effort E] [--command "..."] [--cwd PASTA]
                                       (comando, pasta, modelo e esforço valem a partir do restart)
 
   Comandar o CLI de outro terminal (Codex, Claude Code, Antigravity...), como uma pessoa faria:
@@ -1073,6 +1073,8 @@ async function main(argv: string[]): Promise<number> {
       }
       const universe = str(flags, "--universe");
       const role = str(flags, "--role");
+      // O nome do papel salvo vira a função do terminal (aparece ao lado do nome).
+      if (role) terminal.role = role;
       // Num universo, o canvas é outro: não dá para ligar ao Sol, mas o Sol alcança pelo nome.
       const links = universe ? names(str(flags, "--link")) : [process.env.O_TERMINAL_ID, ...names(str(flags, "--link"))];
       const r = await call("/canvas", { ops: [{ op: "create", kind: "terminal", title: name, terminal, links, ...(role ? { role } : {}), ...placement(flags) }], ...(universe ? { universe } : {}) });
@@ -1102,12 +1104,14 @@ async function main(argv: string[]): Promise<number> {
       if (cwd) terminal.cwd = resolvePath(cwd);
       const command = str(flags, "--command");
       if (command !== undefined) terminal.command = command;
+      const fn = str(flags, "--role");
+      if (fn !== undefined) terminal.role = fn;
       // Modelo e esforço: o Zênite põe na linha de comando do agente (Codex, Claude, Antigravity).
       const model = str(flags, "--model");
       const effort = str(flags, "--effort");
       if (model) terminal.model = model;
       if (effort) terminal.effort = effort;
-      if (!Object.keys(terminal).length) throw new CliError('Diga o que mudar: --color, --font-size, --model, --effort, --command ou --cwd.');
+      if (!Object.keys(terminal).length) throw new CliError('Diga o que mudar: --role, --color, --font-size, --model, --effort, --command ou --cwd.');
       const restart = command !== undefined || cwd !== undefined || !!model || !!effort;
       await applyOps([{ op: "update", target: name, terminal }], print, restart ? `Vale a partir de: zn terminal restart "${name}" (para trocar agora, sem reiniciar: zn agent model/effort)` : "");
       return 0;

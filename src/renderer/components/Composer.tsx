@@ -164,8 +164,10 @@ export function Composer({ onJump }: { onJump: (terminalId: string) => void }) {
             {targets.map((t) => (
               <button key={t.id} role="menuitemcheckbox" aria-checked={chosen.includes(t.id)} onClick={() => toggle(t.id)}>
                 <AgentIcon agent={t.agent} />
-                <span className="composer-target">{t.title}{t.sun && <Sun size={12} className="composer-sun" />}
-                  {t.status && <small>{t.status.state}{t.status.note ? ` · ${t.status.note}` : ""}</small>}</span>
+                <span className="composer-target">
+                  <span>{t.title}{t.sun && <Sun size={12} className="composer-sun" />}{t.role && <em className="composer-role">{t.role}</em>}</span>
+                  {(t.accountName || t.status) && <small>{[t.accountName, t.status && `${t.status.state}${t.status.note ? ` · ${t.status.note}` : ""}`].filter(Boolean).join(" · ")}</small>}
+                </span>
                 {chosen.includes(t.id) && <Check size={15} />}
               </button>
             ))}
@@ -177,7 +179,7 @@ export function Composer({ onJump }: { onJump: (terminalId: string) => void }) {
             <div className="composer-waiting">
               <header>
                 {who && <AgentIcon agent={who.agent} />}
-                <strong>{who?.title ?? "Agente"}</strong>
+                <strong>{who?.title ?? "Agente"}</strong>{who?.role && <em className="composer-role">{who.role}</em>}
                 <span>{waiting.reason === "request" ? "pede sua atenção" : waiting.reason === "last" ? "última resposta" : waiting.needsYou ? "precisa de você" : "terminou"}</span>
                 <button className="composer-link" onClick={() => { const id = waiting.id; setOpen(false); setWaiting(null); onJump(id); }}>Ver no canvas</button>
               </header>
@@ -233,7 +235,7 @@ export function Composer({ onJump }: { onJump: (terminalId: string) => void }) {
           <span className="composer-hint">Enter envia · Shift+Enter quebra linha · arraste arquivos aqui</span>
           <button className="composer-to" aria-expanded={menu === "to"} onClick={() => setMenu(menu === "to" ? null : "to")} title="Escolher para quem enviar">
             {first ? <AgentIcon agent={first.agent} /> : <TerminalSquare size={16} />}
-            <span>{first ? first.title : "Escolher"}{chosen.length > 1 ? ` +${chosen.length - 1}` : ""}</span>
+            <span>{first ? first.title : "Escolher"}{first?.role && <em className="composer-role">{first.role}</em>}{chosen.length > 1 ? ` +${chosen.length - 1}` : ""}</span>
             <ChevronDown size={14} />
           </button>
           <button className="composer-icon" title="Falar (ditado do Windows)" aria-label="Falar" onClick={() => { input.current?.focus(); void window.o.composer.dictate(); }}><Mic size={17} /></button>

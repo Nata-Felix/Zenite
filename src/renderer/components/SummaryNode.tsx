@@ -25,7 +25,7 @@ export function summaryOf(n: CanvasFlowNode): { icon: AnyIcon; color: string; ti
   const t = n.data.terminal;
   if (t) {
     const preset = presetFor(t.command, t.provider);
-    const role = t.sun ? "Orquestrador" : preset.title;
+    const role = t.sun ? "Orquestrador" : t.role ? `${t.role} · ${preset.title}` : preset.title;
     return { icon: preset.icon ?? SquareTerminal, color: t.appearance?.color ?? preset.color, title: t.title, subtitle: t.accountName ? `${role} · ${t.accountName}` : role, sun: !!t.sun };
   }
   const e = n.data.element!;

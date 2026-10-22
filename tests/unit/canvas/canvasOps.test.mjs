@@ -150,3 +150,11 @@ test("describeCanvas mostra nós e ligações pelo nome", () => {
   assert.equal(d.nodes.length, 2);
   assert.deepEqual(d.edges, [{ from: "N", to: "Sol" }]);
 });
+
+test("terminal guarda a função ao ser criado e ao ser editado, e o zn canvas mostra", () => {
+  let { state } = run(base(), [{ op: "create", kind: "terminal", title: "Claude 2", terminal: { command: "claude", role: "  Revisor  " } }]);
+  assert.equal(byTitle(state, "Claude 2").terminal.role, "Revisor");
+  state = run(state, [{ op: "update", target: "Claude 2", terminal: { role: "Testes" } }]).state;
+  assert.equal(byTitle(state, "Claude 2").terminal.role, "Testes");
+  assert.equal(describeCanvas(state).nodes.find((x) => x.title === "Claude 2").role, "Testes");
+});

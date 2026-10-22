@@ -649,6 +649,8 @@ app.whenReady().then(async () => {
       agent: agentOf(n.terminal!.command ?? "", n.terminal!.provider),
       running: ptys.has(n.id),
       sun: !!n.terminal!.sun,
+      role: n.terminal!.role,
+      accountName: n.terminal!.accountName,
       status: lastTasks[n.id],
     }));
   });

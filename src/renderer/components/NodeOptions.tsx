@@ -13,7 +13,7 @@ interface Props {
   nodes: CanvasFlowNode[];
   edges: Edge[];
   linking: boolean;
-  onEdit(title: string, appearance: TerminalAppearance): void;
+  onEdit(title: string, appearance: TerminalAppearance, role: string): void;
   onReload(): void;
   onFocus(id: string): void;
   onStartLine(point: { x: number; y: number }): void;
@@ -50,6 +50,7 @@ export function NodeOptions({ node, nodes, edges, linking, onEdit, onReload, onF
   const [view, setView] = useState<"edit" | "constellation" | null>(null);
   const [title, setTitle] = useState(titleOf(node));
   const [appearance, setAppearance] = useState<TerminalAppearance>({ ...node.data.terminal?.appearance });
+  const [role, setRole] = useState(node.data.terminal?.role ?? "");
   const [target, setTarget] = useState("");
   const detailId = useId();
   const terminal = node.data.terminal;
@@ -66,6 +67,7 @@ export function NodeOptions({ node, nodes, edges, linking, onEdit, onReload, onF
     if (next === "edit") {
       setTitle(titleOf(node));
       setAppearance({ ...terminal?.appearance });
+      setRole(terminal?.role ?? "");
     }
     setView((v) => v === next ? null : next);
   };
@@ -84,9 +86,10 @@ export function NodeOptions({ node, nodes, edges, linking, onEdit, onReload, onF
       {(view || linking) && (
         <div className="node-options-detail" id={detailId}>
           {view === "edit" && terminal && (
-            <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) { onEdit(title.trim(), appearance); setView(null); } }}>
+            <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) { onEdit(title.trim(), appearance, role.trim()); setView(null); } }}>
               <h3>Editar terminal</h3>
               <label>Nome<input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} required /></label>
+              <label>Função<input value={role} maxLength={40} placeholder="Ex.: Frontend, Revisor, Testes" onChange={(e) => setRole(e.target.value)} /></label>
               <fieldset className="terminal-color-picker">
                 <legend>Cor do terminal</legend>
                 <button type="button" className={`ghost small${!appearance.color ? " on" : ""}`} aria-pressed={!appearance.color} onClick={() => setAppearance({ ...appearance, color: undefined })}>Do agente</button>

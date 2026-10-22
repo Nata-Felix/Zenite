@@ -53,6 +53,7 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
             {attention.message && <span className="truncate">: {attention.message}</span>}
           </button>
         )}
+        {terminal.role && <span className="role-chip" title={`Função: ${terminal.role}`}>{terminal.role}</span>}
         <TaskChip terminalId={id} />
         {terminal.accountName && (
           <span className="account-chip" title={`Conta: ${terminal.accountName}`}>

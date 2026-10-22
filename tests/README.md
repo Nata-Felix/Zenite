@@ -52,7 +52,7 @@ npm run test:ui
 | Canvas | `summary-jump`, `summary-start`, `black-hole-organize`, `black-holes`, `canvas-clipboard`, `canvas-undo`, `node-options`, `round-elements` | Organização, agrupamento, copiar/colar, desfazer e opções dos elementos. `round-elements --real-app` inclui o cenário compartilhado de personalização. |
 | Aparência e interação | `connection-effects`, `terminal-mouse` | Animações, arraste e interação do mouse; `terminal-mouse --screen=1080p` testa outra resolução. |
 | Fluxos | `chronos`, `code-flow`, `flow-actions`, `flow-astros` | Agendamento, código, ações e astros. |
-| Segurança e agentes | `app-dialog`, `away-summary`, `composer`, `composer-wait`, `composer-reply`, `canvas-security`, `canvas-sol`, `sol-canvas-welcome` | Diálogos, autoridade do Sol, bloqueios e instruções iniciais. `canvas-security` tenta iniciar terminais em Sandbox e depende da preparação/configuração do isolamento. |
+| Segurança e agentes | `app-dialog`, `away-summary`, `composer`, `composer-wait`, `composer-reply`, `terminal-role`, `canvas-security`, `canvas-sol`, `sol-canvas-welcome` | Diálogos, autoridade do Sol, bloqueios e instruções iniciais. `canvas-security` tenta iniciar terminais em Sandbox e depende da preparação/configuração do isolamento. |
 | Integrações e dados | `canvas-integrations`, `galaxy-archive` | HTTP/MCP/skills e exportação/importação de galáxias. |
 | Navegação | `web-devtools` | Inspeção de sites e ferramentas do navegador. |
 | Isolamento | `docker-install`, `isolated-runtime` | `docker-install`: isolamento desligado por padrão e oferta de instalar o Docker ao ligar (docker e WinGet simulados). `isolated-runtime`: contêiner Docker real e permissões na interface; requer Docker e imagem preparada. |

@@ -27,6 +27,8 @@ export interface TerminalSpec {
   appearance?: TerminalAppearance;
   /** Sol: o orquestrador da galáxia (um por canvas). Ganha o contorno de sol e o papel no zn list. */
   sun?: boolean;
+  /** Função do terminal na equipe ("Frontend", "Revisor"…), mostrada ao lado do nome. */
+  role?: string;
 }
 
 export type AccountAgent = "claude" | "codex" | "antigravity";
@@ -209,6 +211,8 @@ export interface ComposerTarget {
   agent: "codex" | "claude" | "antigravity" | "grok" | "shell" | "other";
   running: boolean;
   sun: boolean;
+  role?: string;
+  accountName?: string;
   status?: TaskStatus;
 }
 
