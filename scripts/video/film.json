@@ -6,16 +6,21 @@
     { "id": "intro", "duration": 8, "title": "Sua ideia merece espaço.", "subtitle": "Zênite · do contexto à entrega", "card": true },
     { "id": "canvas", "duration": 17, "title": "O projeto inteiro, à vista.", "subtitle": "Um briefing. Terminais reais. Um lugar para acompanhar o trabalho." },
     { "id": "connections", "duration": 22, "title": "Conexões que fazem sentido.", "subtitle": "Aurora · Microcometas · Hélice galáctica. Operações reais destacam o caminho do contexto." },
+    { "id": "sol", "duration": 7, "title": "Um Sol para coordenar o projeto.", "subtitle": "Um orquestrador conectado ao briefing, aos agentes e à entrega." },
+    { "id": "agents", "duration": 10, "start": 105, "title": "O Sol delega. O Codex constrói.", "subtitle": "Briefing conectado, pedido pelo zn e implementação real em HTML, CSS e JavaScript.", "speed": 2.5 },
+    { "id": "agents-review", "duration": 24, "start": 25, "title": "Outro agente confere a entrega.", "subtitle": "Revisão real do código e retorno ao Sol pelo canvas.", "speed": 3 },
+    { "id": "agent-result", "duration": 18, "title": "Da conversa para uma interface funcionando.", "subtitle": "O painel Aurora foi gerado pelos agentes. Agora ele é um elemento do projeto." },
     { "id": "elements", "duration": 23, "title": "Contexto perto de quem constrói.", "subtitle": "Notas, requisitos, imagens, arquivos e um protótipo navegável no mesmo canvas." },
     { "id": "draw", "duration": 18, "title": "Pense também com as mãos.", "subtitle": "Desenhe a arquitetura. Destaque uma ideia. Explique o próximo passo." },
     { "id": "universes", "duration": 28, "title": "Explore sem perder a Origem.", "subtitle": "Uma cópia real do projeto. Uma mudança verificável. Revisão antes do merge." },
     { "id": "flows", "duration": 22, "title": "Do próximo passo ao resultado.", "subtitle": "Início, espera, decisão e saída. Um fluxo real executado no projeto." },
+    { "id": "isolation", "duration": 12, "title": "Escolha onde os agentes executam.", "subtitle": "Opções reais de isolamento: contêiner, memória e processadores. Requer Docker e preparação." },
     { "id": "outro", "duration": 10, "title": "Vários agentes. Um só espaço.", "subtitle": "Zênite · Para Windows · experimente o projeto", "card": true }
   ],
   "captureRequirements": {
     "connections": ["aurora", "microcomets", "galactic-helix"],
     "authenticity": "Gravar o aplicativo real; não fabricar respostas de modelos, aprovações ou resultados de execução.",
     "project": "Projeto Aurora fictício, com dados locais e contas sem credenciais pessoais.",
-    "nativeControl": "Aguardar a autorização do Electron no controle do computador antes de interagir com a janela."
+    "nativeControl": "Automação exclusiva do WebContents do projeto fictício. Não mover o mouse nem trocar o foco do computador."
   }
 }

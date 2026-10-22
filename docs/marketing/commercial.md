@@ -30,12 +30,17 @@ Executar na raiz do projeto, depois de `npm run build`. O FFmpeg é localizado p
 `ZENITE_FFMPEG` ou em `out/video-tools/package/ffmpeg.exe`. A gravação não deve incluir
 contas, e-mails, caminhos pessoais, notificações ou projetos reais.
 
-O controle nativo da janela depende da autorização do Zênite/Electron no controle do
-computador. Não contornar um bloqueio de acesso usando outra interface de automação.
+O usuário pediu que a produção se limite ao projeto e à sua tela, sem controlar o PC.
+As tomadas usam a API interna e o WebContents do aplicativo, sem mover o mouse,
+trocar foco entre aplicativos ou gravar a área de trabalho. Os perfis são descartáveis.
 
-Preparação em 22/10/2026: abertura de 8 segundos e trilha instrumental renderizadas,
-sem locução. A janela de demonstração abriu com sucesso, mas o controle do computador
-recusou acesso ao Electron; nenhum capítulo funcional foi gravado nessa etapa.
+Em 22/10/2026 foram capturados o canvas, três efeitos de ligação, elementos, desenhos,
+universo Git e um fluxo com saída verificada no terminal. O fluxo não escreve em notas:
+o destino é um terminal real que recebe o texto e salva `resultado-fluxo.json`.
+O capítulo de agentes usa Codex CLI autenticado, com promoção real do Sol e tarefas
+delegadas pelo canal `zn`. Não apresentar processos Node auxiliares como modelos de IA.
+O capítulo de isolamento deve distinguir opções configuráveis de um contêiner realmente
+executado; não mostrar um estado preparado se o Docker não estiver disponível.
 
 ## Critérios para o corte final
 

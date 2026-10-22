@@ -18,6 +18,7 @@ app.commandLine.appendSwitch('force-device-scale-factor', '1');
 writeFileSync(join(project, 'README.md'), '# Aurora\n\nProjeto fictício para demonstrar o Zênite.\n');
 writeFileSync(join(project, '.gitignore'), 'relatorio-local.json\n');
 writeFileSync(join(project, 'interface.txt'), 'Versão original do projeto Aurora.\n');
+if(process.env.ZENITE_FILM_SEED_PROJECT)copyFileSync(join(process.env.ZENITE_FILM_SEED_PROJECT,'index.html'),join(project,'index.html'));
 execFileSync('git', ['init', '--quiet', project]);
 execFileSync('git', ['-C', project, 'config', 'user.name', 'Equipe de demonstração']);
 execFileSync('git', ['-C', project, 'config', 'user.email', 'demo@example.com']);
@@ -68,8 +69,17 @@ canvases.flows = canvas([
   flow('decisao', 'Verificar o resultado', 730, 130, { type: 'gemini', condition: { op: 'contains', value: 'OK' } }),
   note('saida', 'Resultado do fluxo', '# Aguardando a execução\n\nO resultado real do fluxo aparecerá aqui.', 1120, 20, 330, 260, 'green'),
   note('ajustes', 'Revisar e ajustar', '# Um caminho alternativo\n\nSe a condição não for atendida, o fluxo segue por aqui.', 1120, 390, 330, 235, 'pink'),
-], [edge('inicio', 'espera'), edge('espera', 'decisao'), edge('decisao', 'saida', { sourceHandle: 'A' }), edge('decisao', 'ajustes', { sourceHandle: 'B' })], { x: 20, y: 215, zoom: 0.82 });
-const names = { studio: '01 · Canvas vivo', elements: '02 · Elementos', draw: '03 · Desenhe suas ideias', multiverse: '04 · Universos paralelos', flows: '05 · Fluxos em ação' };
+], [edge('inicio', 'espera'), edge('espera', 'decisao'), edge('decisao', 'saida', { sourceHandle: 'a' }), edge('decisao', 'ajustes', { sourceHandle: 'b' })], { x: 20, y: 215, zoom: 0.82 });
+canvases.flows.nodes[3]={id:'saida',kind:'terminal',x:1120,y:10,width:420,height:330,terminal:{id:'saida',title:'Validação · saída real',command:`node '${join(root,'scripts/video/flow-sink.cjs')}'`,cwd:project,appearance:{fontSize:16,color:'#56d6ac'}}};
+const cliScript = join(root, 'scripts/video/cli-agent.cjs');
+const cliTerminal = (id,title,role,x,y) => ({id,kind:'terminal',x,y,width:570,height:380,terminal:{id,title,command:`node '${cliScript}' '${role}'`,cwd:project,appearance:{fontSize:15,color:role==='sol'?'#f5c96b':role==='builder'?'#8ea2ff':'#56d6ac'}},summary:{x:x*.65+80,y:y*.65+100}});
+canvases.agents=canvas([
+  cliTerminal('sol-cli','Sol · Codex','sol',440,30),cliTerminal('builder-cli','Construtor Codex','builder',1120,30),cliTerminal('reviewer-cli','Revisor Codex','reviewer',1120,500),
+  note('brief-cli','Briefing CLI','# Projeto Aurora\n\nConstrua um painel de tarefas funcional.\n\n- Adicionar tarefa\n- Marcar como concluída\n- Interface escura e legível\n- HTML, CSS e JavaScript puro\n\nSol delega. Construtor implementa. Revisor verifica.',0,0,330,330),
+  note('delivery-cli','Entrega CLI','# Aguardando os agentes\n\nO resultado real será registrado aqui.',450,530,400,260,'green'),
+  el('project-cli','folder','Projeto conectado',0,420,330,320,{path:project}),
+], [edge('sol-cli','builder-cli'),edge('sol-cli','reviewer-cli'),edge('sol-cli','brief-cli'),edge('builder-cli','brief-cli'),edge('reviewer-cli','brief-cli'),edge('sol-cli','delivery-cli'),edge('builder-cli','project-cli'),edge('reviewer-cli','project-cli')],{x:35,y:125,zoom:.66});
+const names = { studio: '01 · Canvas vivo', elements: '02 · Elementos', draw: '03 · Desenhe suas ideias', multiverse: '04 · Universos paralelos', flows: '05 · Fluxos em ação',agents:'06 · Sol e agentes CLI' };
 for (const [id, state] of Object.entries(canvases)) writeFileSync(join(profile, 'workspaces', id + '.json'), JSON.stringify(state));
 const index = { version: 1, activeId: 'studio', workspaces: Object.entries(names).map(([id, name]) => ({ id, name, dir: project, universes: [] })), settings: { confirmQuit: false, agentGuide: false, agentPermissions: 'ask', isolatedAgents: false, notifyDone: false, notifyRequest: false } };
 writeFileSync(join(profile, 'workspaces/index.json'), JSON.stringify(index));
@@ -89,6 +99,7 @@ const api = createServer(async (req, res) => {
       writeFileSync(join(out, 'stills', name + '.png'), (await win.webContents.capturePage()).toPNG());
       return res.end(JSON.stringify({ ok: true }));
     }
+    if (url.pathname === '/quit') { res.end('{"ok":true}'); setTimeout(() => app.quit(), 250); return; }
     if (url.pathname === '/start') {
       if (active) throw Error('Gravação já está ativa');
       const name = url.searchParams.get('name');
@@ -122,6 +133,7 @@ const api = createServer(async (req, res) => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.end('<body style="margin:0;background:#111425;color:#e9edff;font:17px Segoe UI;padding:45px"><small style="color:#9dacff;letter-spacing:4px">AURORA / ESTÚDIO</small><h1 style="font-size:46px;font-weight:400">Ideias encontram<br>o próximo passo.</h1><p style="color:#a4adc5;line-height:1.8">Um protótipo local, dentro do seu canvas.<br>Contexto perto de quem está construindo.</p><button onclick="this.textContent=\'Protótipo validado ✓\'" style="border:0;border-radius:9px;background:#a5b5ff;padding:14px 20px;margin-top:18px">Explorar o projeto →</button>');
     }
+    if (url.pathname === '/produced') { res.setHeader('Content-Type','text/html; charset=utf-8'); return res.end(readFileSync(join(project,'index.html'),'utf8')); }
     res.statusCode = 404; res.end('{}');
   } catch (error) { res.statusCode = 400; res.end(JSON.stringify({ error: error.message })); }
 });
@@ -137,9 +149,10 @@ app.once('browser-window-created', (_event, window) => {
     win = window;
     win.setContentSize(1600, 900); win.center(); win.setTitle('Zênite · Estúdio do comercial');
     win.webContents.setBackgroundThrottling(false);
-    win.show();
+    win.showInactive();
     writeFileSync(join(out, 'ready.json'), JSON.stringify({ apiPort, profile, project, pid: process.pid }));
     console.log('STUDIO READY');
+    if (process.env.ZENITE_FILM_AUTORUN === '1') require(process.env.ZENITE_FILM_PHASE==='result'?'./take-result.cjs':process.env.ZENITE_FILM_PHASE==='completion'?'./take-completion.cjs':process.env.ZENITE_FILM_PHASE==='agents'?'./take-agents.cjs':'./take.cjs')({ win, out, profile, project, api: () => `http://127.0.0.1:${apiPort}` }).catch(error => { console.error(error.stack); writeFileSync(join(out, 'take-error.txt'), error.stack); });
   });
 });
 app.on('will-quit', () => { api.close(); if (active) { clearInterval(active.timer); active.process.stdin.end(); } });

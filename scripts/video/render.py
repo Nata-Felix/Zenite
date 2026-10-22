@@ -5,6 +5,7 @@ import json
 import shutil
 import subprocess
 import textwrap
+import re
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / 'out/comercial-zenite'
@@ -14,6 +15,14 @@ FILM = json.loads((ROOT / 'scripts/video/film.json').read_text(encoding='utf-8')
 
 def run(args):
     subprocess.run([str(FFMPEG), '-y', '-hide_banner', '-loglevel', 'error', *map(str, args)], cwd=RENDER, check=True)
+
+def duration(file):
+    result = subprocess.run([str(FFMPEG), '-hide_banner', '-i', str(file)], capture_output=True, text=True, errors='replace')
+    match = re.search(r'Duration: (\d+):(\d+):(\d+\.\d+)', result.stderr)
+    if not match:
+        raise RuntimeError('Não foi possível verificar a duração: ' + file.name)
+    hours, minutes, seconds = map(float, match.groups())
+    return hours * 3600 + minutes * 60 + seconds
 
 def textfile(name, text):
     file = RENDER / name
@@ -52,7 +61,11 @@ def footage(chapter, number):
     title = textfile(chapter['id'] + '-title.txt', chapter['title'])
     sub = textfile(chapter['id'] + '-description.txt', '\n'.join(textwrap.wrap(chapter['subtitle'], width=94)))
     badge = textfile(chapter['id'] + '-number.txt', f'{number:02d} / PROJETO AURORA · DEMONSTRAÇÃO REAL')
+    length = min(chapter['duration'], (duration(raw) - chapter.get('start', 0)) / chapter.get('speed', 1))
+    if length <= 0:
+        raise RuntimeError('Trecho fora da captura: ' + raw.name)
     filters = [
+        f"setpts=PTS/{chapter.get('speed', 1)}",
         'scale=1920:1080:force_original_aspect_ratio=decrease',
         'pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=0x080b17',
         "drawbox=x=0:y=833:w=iw:h=247:c=0x080b17@0.93:t=fill:enable='between(t,.2,5.5)'",
@@ -60,19 +73,30 @@ def footage(chapter, number):
         text(title, 39, 76, 895, 'white', "enable='between(t,.2,5.5)'"),
         text(sub, 22, 76, 956, '0xc6cfe5', "line_spacing=8:enable='between(t,.2,5.5)'"),
         'fps=25',
+        f'fade=t=in:st=0:d=0.25,fade=t=out:st={max(0,length-.3)}:d=0.3',
     ]
     file = RENDER / (chapter['id'] + '.mp4')
-    run(['-i', raw, '-vf', ','.join(filters), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p', file])
+    # Os perfis de gravação podem descartar quadros sob carga. O corte regula o ritmo
+    # editorial, sem modificar a execução ou os resultados apresentados na interface.
+    if chapter['id'] in ('agents', 'agents-review'):
+        speed_label = textfile('agents-speed.txt', 'EXECUÇÃO REAL · TRECHOS ACELERADOS')
+        filters.append(text(speed_label, 18, 'w-tw-70', 45, '0xb7c3e4'))
+    options = ['-ss', chapter.get('start', 0), '-i', raw, '-vf', ','.join(filters), '-t', chapter['duration'], '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p', file]
+    run(options)
     return file
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--intro-only', action='store_true')
+    parser.add_argument('--chapter', choices=[chapter['id'] for chapter in FILM['chapters']])
     args = parser.parse_args()
     RENDER.mkdir(parents=True, exist_ok=True)
     font = Path('C:/Windows/Fonts/segoeui.ttf')
     shutil.copyfile(font, RENDER / 'font.ttf')
-    if args.intro_only:
+    if args.chapter:
+        chapter = next(item for item in FILM['chapters'] if item['id'] == args.chapter)
+        output = card(chapter) if chapter.get('card') else footage(chapter, FILM['chapters'].index(chapter))
+    elif args.intro_only:
         video = card(FILM['chapters'][0])
         output = OUT / 'previa-abertura-sem-locucao.mp4'
         run(['-i', video, '-i', OUT / 'audio/trilha-original.wav', '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', 'afade=t=in:d=1,afade=t=out:st=6:d=2', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', output])
@@ -85,7 +109,8 @@ def main():
         concat = RENDER / 'concat.txt'
         concat.write_text('\n'.join("file '" + file.name + "'" for file in videos), encoding='utf-8')
         output = OUT / 'Zenite-comercial-sem-locucao.mp4'
-        run(['-f', 'concat', '-safe', '0', '-i', concat, '-stream_loop', '-1', '-i', OUT / 'audio/trilha-original.wav', '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', output])
+        length = sum(duration(video) for video in videos)
+        run(['-f', 'concat', '-safe', '0', '-i', concat, '-stream_loop', '-1', '-i', OUT / 'audio/trilha-original.wav', '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', f'afade=t=in:d=1.5,afade=t=out:st={length-4}:d=4', '-c:a', 'aac', '-b:a', '192k', '-shortest', '-movflags', '+faststart', output])
     print(output)
 
 if __name__ == '__main__':

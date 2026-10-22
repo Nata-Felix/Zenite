@@ -1,0 +1,42 @@
+const {writeFileSync,existsSync,readFileSync}=require('node:fs');
+const {join}=require('node:path');
+module.exports=async({win,out,profile,project,api})=>{
+ const delay=ms=>new Promise(r=>setTimeout(r,ms));const js=code=>win.webContents.executeJavaScript(code,true);
+ const command=name=>js(`window.dispatchEvent(new CustomEvent('zenite:command',{detail:${JSON.stringify(name)}}))`);
+ const endpoint=async path=>{const r=await fetch(api()+path).then(r=>r.json());if(r.error)throw Error(r.error);return r;};
+ await delay(1500);await js("document.querySelectorAll('.workspace-item')[5].click()");await delay(1500);
+ // Usa o controle real de promoção para atualizar autoridade e aparência do Sol.
+ win.webContents.debugger.attach('1.3');
+ const point=await js("(()=>{const r=document.querySelector('[data-id=\"sol-cli\"] .terminal-header').getBoundingClientRect();return{x:r.x+35,y:r.y+10}})()");
+ await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',buttons:1,clickCount:1});
+ await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',buttons:0,clickCount:1});await delay(250);
+ await js("document.querySelector('button[title^=\"Promover a Sol\"]').click()");await delay(700);win.webContents.debugger.detach();
+ await endpoint('/start?name=agents-review');writeFileSync(join(project,'iniciar-agentes.txt'),'Revisão real da implementação produzida pelo Codex.');
+ console.log('REVISÃO CLI INICIADA');
+ const end=Date.now()+420000;
+ while(Date.now()<end&&!existsSync(join(project,'agent-sol-done.json')))await delay(1000);
+ console.log('REVIEW TAKE '+JSON.stringify(await endpoint('/stop')));
+ if(!existsSync(join(project,'revisao.md')))throw Error('A revisão ainda não foi produzida');
+ await endpoint('/shot?name=sol-revisao-concluida');
+ await command('toggle-summary');await delay(1000);await command('fit-view');await delay(500);
+ await endpoint('/start?name=sol');await delay(6500);await endpoint('/shot?name=sol-visao-resumida');await endpoint('/stop');
+ await command('toggle-summary');await delay(500);
+ // Atualiza o elemento de site existente para abrir o arquivo criado pelo Codex.
+ const state=await js("window.o.canvas.load('elements')");state.nodes.find(n=>n.id==='site').element.url=api()+'/produced';
+ state.nodes.find(n=>n.id==='site').width=1250;state.nodes.find(n=>n.id==='site').height=650;state.nodes.find(n=>n.id==='site').x=30;state.nodes.find(n=>n.id==='site').y=40;
+ state.nodes=state.nodes.filter(n=>n.id==='site');state.viewport={x:35,y:115,zoom:.95};
+ await js(`window.o.canvas.save('elements',${JSON.stringify(state)})`);
+ await js("document.querySelectorAll('.workspace-item')[1].click()");await delay(2000);
+ const id=await js("document.querySelector('webview').getWebContentsId()");const guest=require('electron').webContents.fromId(id);
+ const dom=await guest.executeJavaScript("({title:document.title,inputs:[...document.querySelectorAll('input')].map(e=>({type:e.type,placeholder:e.placeholder})),buttons:[...document.querySelectorAll('button')].map(e=>e.textContent.trim())})");
+ writeFileSync(join(out,'produced-dom.json'),JSON.stringify(dom,null,2));
+ await endpoint('/start?name=agent-result');await delay(2000);
+ const test=await guest.executeJavaScript(`(()=>{const input=[...document.querySelectorAll('input')].find(e=>e.type==='text'||!e.type);if(!input)return{tested:false};const before=document.body.innerText;input.value='Validar a entrega no Zênite';input.dispatchEvent(new Event('input',{bubbles:true}));const form=input.closest('form');if(form)form.requestSubmit();else{const add=[...document.querySelectorAll('button')].find(e=>/adicionar|criar|add/i.test(e.textContent));if(add)add.click();}return{tested:true,added:document.body.innerText.includes('Validar a entrega no Zênite'),changed:before!==document.body.innerText}})()`);
+ await delay(2400);
+ const complete=await guest.executeJavaScript("(()=>{const checkbox=document.querySelector('input[type=checkbox]');if(checkbox){checkbox.click();return true;}const b=[...document.querySelectorAll('button')].find(e=>/concluir|marcar|feito/i.test(e.getAttribute('aria-label')||e.title||e.textContent));if(b){b.click();return true;}return false;})()");
+ await delay(2500);await endpoint('/shot?name=produto-criado-codex');await endpoint('/stop');
+ writeFileSync(join(out,'functional-evidence.json'),JSON.stringify({test,complete,review:readFileSync(join(project,'revisao.md'),'utf8')},null,2));
+ await command('open-settings');await delay(300);await js("[...document.querySelectorAll('.settings-tabs button')].find(e=>e.textContent.trim()==='Agentes').click()");await delay(1500);
+ await endpoint('/start?name=isolation');await delay(9000);await endpoint('/shot?name=opcoes-isolamento');await endpoint('/stop');
+ await js("document.querySelector('.settings-head button').click()");console.log('COMPLETION TAKE DONE');
+};
