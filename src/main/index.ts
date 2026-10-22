@@ -117,8 +117,24 @@ function createWindow(): void {
 
 app.whenReady().then(async () => {
   const dataDir = app.getPath("userData");
-  const suns = new SunAuthority();
+  // O Sol de cada galáxia volta ao reabrir. O registro é do processo principal (cifrado pelo
+  // Windows) e regravado a cada promoção e ao fechar: com o app fechado nenhum agente roda, e uma
+  // mexida no arquivo durante a sessão é desfeita na próxima gravação. O sun do canvas segue ignorado.
+  const sunFile = join(dataDir, "sol-ativo.bin");
+  const saveSuns = (grants: Record<string, string>) => {
+    try {
+      const text = JSON.stringify(grants);
+      writeFileSync(sunFile, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(text) : Buffer.from(text));
+    } catch { /* sem disco: o Sol vale só nesta sessão */ }
+  };
+  const suns = new SunAuthority(saveSuns);
   const store = new WorkspaceStore(dataDir, (id, state) => suns.present(id, state)!);
+  try {
+    const raw = readFileSync(sunFile);
+    const grants = JSON.parse(safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString("utf8")) as Record<string, string>;
+    suns.restore(grants, (canvasId, terminalId) => !!store.loadCanvas(canvasId)?.nodes.some((n) => n.id === terminalId && n.kind === "terminal"));
+  } catch { /* primeira vez ou registro ilegível: começa sem Sol */ }
+  app.on("will-quit", () => saveSuns(suns.entries()));
   store.protectRuntimeState();
   const isMainUI = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => {
     try {

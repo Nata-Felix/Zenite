@@ -26,8 +26,8 @@ mas não pode ser lido, editado nem usado.
 
 Só o Sol cria, remove, move e conecta elementos ou substitui mídia. Outros agentes trabalham
 no conteúdo dos elementos ligados e pedem mudanças de estrutura ao Sol. A promoção é feita
-pelo usuário na interface e precisa ser refeita após reiniciar o aplicativo. ID ou sun no JSON
-não concedem essa função. A tela e as teclas do Sol não são acessíveis por outros agentes.
+pelo usuário na interface e o Zênite a guarda para a próxima vez que abrir. ID ou sun no JSON
+do canvas não concedem essa função. A tela e as teclas do Sol não são acessíveis por outros agentes.
 
 Geral:
   Buraco negro (só Sol): zn node create buraco-negro "Apps" --config '{"members":["id1","id2"],"collapsed":true}'
