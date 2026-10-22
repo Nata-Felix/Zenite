@@ -12,6 +12,18 @@ const publish = (all: Record<string, TaskStatus>) => {
 window.o.pty.tasks().then(publish, () => {});
 window.o.pty.onTasks(publish);
 
+/** Todos os selos, atualizados (painel de terminais). */
+export function useTasks(): Record<string, TaskStatus> {
+  const [all, setAll] = useState(latest);
+  useEffect(() => {
+    const update = () => setAll(latest);
+    update();
+    listeners.add(update);
+    return () => void listeners.delete(update);
+  }, []);
+  return all;
+}
+
 const LABEL: Record<TaskStatus["state"], string> = { trabalhando: "Trabalhando", bloqueado: "Bloqueado", pronto: "Pronto p/ revisão", livre: "Livre" };
 
 /** "Trabalhando", "Bloqueado"... no cabeçalho do terminal; o detalhe aparece ao passar o mouse. */

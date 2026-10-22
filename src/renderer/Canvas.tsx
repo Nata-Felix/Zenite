@@ -60,6 +60,8 @@ import { DrawNode } from "./draw/DrawNode";
 import { DrawOverlay, OVERLAY_TOOLS, type Box } from "./draw/DrawOverlay";
 import { DrawPanel } from "./draw/DrawPanel";
 import { DrawToolbar } from "./draw/DrawToolbar";
+import { AgentRail } from "./components/AgentRail";
+import { CollapseButton, CollapsedTab, useCollapsed } from "./components/Collapsible";
 import { AREA_SHAPES, bucketColor, DEFAULT_STYLE, DRAWING_TOOLS, TOOL_KEYS, defaultZ, isHollow, newSeed, type DrawStyle, type Tool } from "./draw/style";
 import { ELEMENT_STYLE, INNER_PATH_TYPE, type CanvasFlowNode, type NodeActions } from "./nodes";
 import { readPref, writePref } from "./prefs";
@@ -668,6 +670,8 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
 
   // ---- Visão resumida (estilo n8n): cartões compactos no lugar dos elementos ----
   const [summary, setSummary] = useState(() => readPref("summaryView", false));
+  const [headerCollapsed, setHeaderCollapsed] = useCollapsed("galaxy");
+  const [toolsCollapsed, setToolsCollapsed] = useCollapsed("draw");
   /** Elemento aberto em zoom na visão resumida (mostra o elemento de verdade, o resto escurece). */
   const [expanded, setExpanded] = useState<string | null>(null);
   summaryRef.current = summary;
@@ -1837,8 +1841,10 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
           <header><span>PASTA</span><strong>{n.data.element?.title}</strong><small>{n.data.blackHoleCount} elementos</small></header>
           {!n.data.blackHoleCount && <p>Arraste elementos até o Buraco negro para guardar aqui.</p>}
         </div>)}</ViewportPortal>
-        <Panel position="top-left">
-          <UniverseBar workspace={workspace} universe={universe} onIndex={onIndex} />
+        <Panel position="top-left" className="universe-panel">
+          {headerCollapsed
+            ? <CollapsedTab side="top" label="a barra da galáxia" onClick={() => setHeaderCollapsed(false)}><strong>{universe ? `${workspace.name} · ${universe.name}` : workspace.name}</strong></CollapsedTab>
+            : <><UniverseBar workspace={workspace} universe={universe} onIndex={onIndex} /><CollapseButton side="top" label="a barra da galáxia" onClick={() => setHeaderCollapsed(true)} /></>}
         </Panel>
         {folderViewport.current && nodes.some(n => n.id === folderViewport.current!.id && n.data.element?.blackHole?.collapsed === false) && !expanded && <Panel position="top-center" className="summary-close-panel">
           <button className="summary-close" onClick={() => { const id = folderViewport.current?.id; if (id) actions.toggleBlackHole(id); }}>Voltar ao canvas <kbd>Esc</kbd></button>
@@ -1940,7 +1946,10 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
           />
         </div>
       )}
-      <div className="draw-dock">
+      <AgentRail nodes={nodes} />
+      {toolsCollapsed && <div className="draw-dock"><CollapsedTab side="right" label="as ferramentas de desenho" onClick={() => setToolsCollapsed(false)} /></div>}
+      {!toolsCollapsed && <div className="draw-dock">
+        <CollapseButton side="right" label="as ferramentas de desenho" onClick={() => setToolsCollapsed(true)} />
         <DrawToolbar tool={tool} onTool={pickTool} locked={toolLocked} onLock={lockTool} canUndo={past.current.length > 0} canRedo={future.current.length > 0} onUndo={undo} onRedo={redo} />
         {(DRAWING_TOOLS.includes(tool) || selectedDraws.length > 0) && (
           <DrawPanel
@@ -1956,7 +1965,7 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
             }
           />
         )}
-      </div>
+      </div>}
       {nodes.length === 0 && <EmptyState workspaceName={universe ? `${workspace.name} · ${universe.name}` : workspace.name} onPick={(preset) => setDialog({ preset })} />}
       {pendingUnlink && (
         <UnlinkDialog

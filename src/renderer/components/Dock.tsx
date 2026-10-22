@@ -1,3 +1,4 @@
+import { CollapseButton, CollapsedTab, useCollapsed } from "./Collapsible";
 import { useEffect, useRef, useState } from "react";
 import { ChevronUp, KeyRound, Map as MapIcon, Maximize, Minus, Network, Orbit, Plus, RotateCcw, Workflow, Eclipse } from "lucide-react";
 import { runCommand } from "../commands";
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function Dock({ onNew, onNewElement, minimap, onToggleMinimap, canAutoLayout, canUndoLayout, onAutoLayout, onUndoLayout, onFitCanvas, summary, onToggleSummary }: Props) {
+  const [collapsed, setCollapsed] = useCollapsed("dock");
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
   const agents = [...PRESETS, ...useCustomPresets().map(fromCustom)];
@@ -55,6 +57,11 @@ export function Dock({ onNew, onNewElement, minimap, onToggleMinimap, canAutoLay
     }
   };
 
+  if (collapsed) return (
+    <Panel position="bottom-center" className="dock-panel">
+      <CollapsedTab side="bottom" label="a barra de ferramentas" onClick={() => setCollapsed(false)} />
+    </Panel>
+  );
   return (
     <Panel position="bottom-center" className="dock-panel">
       {menu && (
@@ -143,6 +150,7 @@ export function Dock({ onNew, onNewElement, minimap, onToggleMinimap, canAutoLay
         <button title="Minimapa" className={minimap ? "on" : ""} onClick={onToggleMinimap}>
           <MapIcon size={15} />
         </button>
+        <CollapseButton side="bottom" label="a barra de ferramentas" onClick={() => setCollapsed(true)} />
       </div>
     </Panel>
   );
