@@ -790,6 +790,20 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
     });
   }, [sizedNodes, collapsedMembership, blackHoleMembership, blackHoleDrop, summary]);
 
+  // Na visão resumida só os círculos são desenhados: o terminal de verdade (que inicia o
+  // processo ao montar) só existe quando é aberto. Sem isto, abrir o canvas já resumido deixava
+  // os agentes parados. Inicia cada terminal uma vez; ao abrir, a sessão é reaproveitada com o histórico.
+  const startedInSummary = useRef(new Set<string>());
+  useEffect(() => {
+    if (!loaded || !summary) return;
+    for (const n of nodes) {
+      const t = n.data.terminal;
+      if (!t || startedInSummary.current.has(n.id)) continue;
+      startedInSummary.current.add(n.id);
+      void window.o.pty.create({ id: n.id, command: t.command, cwd: t.cwd, account: t.account, provider: t.provider, sun: t.sun, cols: 120, rows: 32 }).catch(() => {});
+    }
+  }, [loaded, summary, nodes]);
+
   /** Abre um elemento da visão resumida: zoom até ele, o resto escurece. */
   const savedViewport = useRef<{ x: number; y: number; zoom: number } | null>(null);
   const openSummary = (id: string) => {
