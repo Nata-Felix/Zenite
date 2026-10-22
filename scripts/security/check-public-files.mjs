@@ -22,7 +22,7 @@ for (const file of files) {
     || /^(?:out|output|dist|dist-bench|coverage|test-results|playwright-report|contas|segredos|backups|workspaces|universos|galaxias-importadas)\//.test(file);
   if (sensitive) problems.push(`${file}: arquivo local ou sensível não deve ser publicado`);
   // O lockfile contém metadados públicos dos autores de dependências do npm.
-  if (file === 'package-lock.json' || !/\.(?:md|[cm]?js|tsx?|json|ya?ml|toml|txt|cs|xaml)$/.test(name)) continue;
+  if (file === 'package-lock.json' || !/\.(?:md|[cm]?js|tsx?|py|json|ya?ml|toml|txt|cs|xaml)$/.test(name)) continue;
   const lines = readFileSync(full, 'utf8').split(/\r?\n/);
   for (let index = 0; index < lines.length; index++) {
     const emails = lines[index].match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi) ?? [];

@@ -6,6 +6,7 @@
 | `isolation/` | `prepare-isolation.cjs` | Prepara a imagem Docker por `npm run prepare:isolation`. |
 | `assets/` | `make-icon.cjs`, `export-icons.cjs` | Geração/exportação de ícones. `make-icon` exige Playwright instalado globalmente; `export-icons` usa as dependências do projeto. |
 | `security/` | `check-public-files.mjs` | Recusa dados locais e e-mails pessoais no conteúdo publicável; usado por `npm run security:check`. |
+| `video/` | `studio.cjs`, `demo-worker.cjs`, `score.py`, `render.py`, `film.json` | Estúdio, roteiro e montagem do comercial; veja [a documentação](../docs/marketing/commercial.md). Capturas e renders ficam em `out/`. |
 
 Execute na raiz do repositório. Exemplo: `node scripts/assets/export-icons.cjs out/icones`.
 

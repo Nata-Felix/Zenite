@@ -45,3 +45,5 @@ id_ed25519*
 *.zenite-galaxia
 *.zenite
 *.tsbuildinfo
+__pycache__/
+*.py[cod]
