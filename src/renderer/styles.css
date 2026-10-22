@@ -4232,6 +4232,18 @@ kbd {
   box-shadow: var(--shadow);
 }
 .agent-rail.collapsed { padding: 0; background: none; border: 0; box-shadow: none; overflow: visible; }
+.agent-rail:not(.collapsed) { overflow: hidden; }
+.agent-rail > .bar-collapse { flex-shrink: 0; }
+.agent-rail-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.agent-rail-list > .agent-rail-item { flex-shrink: 0; }
 .agent-rail-item {
   position: relative;
   display: flex;

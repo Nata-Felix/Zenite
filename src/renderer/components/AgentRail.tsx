@@ -30,6 +30,8 @@ export function AgentRail({ nodes }: { nodes: CanvasFlowNode[] }) {
   }
   return (
     <nav className="agent-rail" aria-label="Terminais do canvas">
+      <CollapseButton side="left" label="os terminais" onClick={() => setCollapsed(true)} />
+      <div className="agent-rail-list">
       {terminals.map((n) => {
         const t = n.data.terminal!;
         const preset = presetFor(t.command, t.provider);
@@ -45,7 +47,7 @@ export function AgentRail({ nodes }: { nodes: CanvasFlowNode[] }) {
           </button>
         );
       })}
-      <CollapseButton side="left" label="os terminais" onClick={() => setCollapsed(true)} />
+      </div>
     </nav>
   );
 }
