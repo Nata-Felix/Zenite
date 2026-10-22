@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowDownToLine, GitBranch, GitCommitHorizontal, GitMerge, Sun, Trash2, TriangleAlert } from "lucide-react";
+import { ArrowDownToLine, GitBranch, GitCommitHorizontal, GitMerge, Orbit, Sun, Trash2, TriangleAlert } from "lucide-react";
 import { ParallelUniverseIcon } from "./ParallelUniverseIcon";
 import { useCommands } from "../commands";
 import type { GitRepoState, UniverseMeta, UniverseStatus, WorkspaceIndex, WorkspaceMeta } from "../../shared/types";
@@ -14,12 +14,13 @@ interface Props {
   workspace: WorkspaceMeta;
   universe?: UniverseMeta;
   onIndex(index: WorkspaceIndex): void;
+  zenite?: { active: boolean; toggle(): void };
 }
 
 type Open = "new" | "converge" | "collapse" | "update" | "env" | "git" | "proposals" | null;
 
 /** Galáxia atual, Origem e universos paralelos, com as ações do universo aberto. */
-export function UniverseBar({ workspace, universe, onIndex }: Props) {
+export function UniverseBar({ workspace, universe, onIndex, zenite }: Props) {
   const [open, setOpen] = useState<Open>(null);
   const universes = workspace.universes ?? [];
   const proposals = workspace.proposals ?? [];
@@ -77,6 +78,7 @@ export function UniverseBar({ workspace, universe, onIndex }: Props) {
         </div>
       )}
       <div className="universe-chips">
+        {zenite && <button className={`universe-chip zenite-chip${zenite.active ? " active" : ""}`} aria-pressed={zenite.active} onClick={zenite.toggle} title={zenite.active ? "Voltar ao canvas" : "Zênite"}><Orbit size={13} /> Zênite</button>}
         <button className={`universe-chip origin${!universe ? " active" : ""}`} onClick={() => go(null)} title={`${T.origin}: ${T.originHint}`}>
           <Sun size={13} /> {T.origin}
         </button>

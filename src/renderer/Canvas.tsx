@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -83,6 +83,8 @@ import { flushElementDrafts } from "./elementDrafts";
 import { CanvasClipboardBar } from "./components/CanvasClipboardBar";
 import { SUMMARY_SIZE, SUN_SIZE, SummaryNode } from "./components/SummaryNode";
 import { autoLayout, type LayoutGaps } from "./autoLayout";
+import { useZeniteOrbit } from "./useZeniteOrbit";
+const ZeniteSpace = lazy(() => import("./components/ZeniteSpace"));
 import { arrowBindings, followArrows, frameMembers, type Bindings, type Piece } from "./draw/attach";
 import { labelOf, tryCanvasOps, type CanvasUiReply } from "../shared/canvasOps";
 
@@ -794,6 +796,28 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
     });
   }, [sizedNodes, collapsedMembership, blackHoleMembership, blackHoleDrop, summary]);
 
+  const orbit = useZeniteOrbit(displayNodes, displayEdges, theme === "dark");
+  useEffect(() => { if (orbit.unlocked) setHeaderCollapsed(false); }, [orbit.unlocked]);
+  const beforeOrbit = useRef<{ summary: boolean; viewport: Viewport } | null>(null);
+  const stopOrbit = () => {
+    orbit.setActive(false);
+    const before = beforeOrbit.current;
+    beforeOrbit.current = null;
+    if (before) {
+      setSummary(before.summary);
+      void flowRef.current?.setViewport(before.viewport, { duration: 400 });
+    }
+  };
+  const toggleOrbit = () => {
+    if (orbit.active) return stopOrbit();
+    beforeOrbit.current = { summary, viewport: flowRef.current?.getViewport() ?? viewport };
+    setExpanded(null);
+    setSummary(true);
+    orbit.setActive(true);
+    setHeaderCollapsed(false);
+    toNav();
+  };
+
   // Na visão resumida só os círculos são desenhados: o terminal de verdade (que inicia o
   // processo ao montar) só existe quando é aberto. Sem isto, abrir o canvas já resumido deixava
   // os agentes parados. Inicia cada terminal uma vez; ao abrir, a sessão é reaproveitada com o histórico.
@@ -831,6 +855,7 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
     savedViewport.current = null;
   };
   const toggleSummary = () => {
+    if (orbit.active) return stopOrbit();
     setExpanded(null);
     savedViewport.current = null;
     setSummary((s) => {
@@ -1743,26 +1768,28 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
   if (!loaded) return <div className="canvas" />;
 
   return (
-    <div className={`canvas tool-${tool}${summary ? " summary" : ""}${expanded ? " summary-focus" : ""}${altHeld ? " alt-held" : ""}`} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}
+    <div className={`canvas tool-${tool}${summary ? " summary" : ""}${orbit.active ? " zenite-system" : ""}${expanded ? " summary-focus" : ""}${altHeld ? " alt-held" : ""}`} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}
       onPointerMoveCapture={e => {
         if (e.buttons) return;
         const above = document.elementsFromPoint(e.clientX, e.clientY);
         setOverElement(above.some(el => el.closest('.react-flow__node:not(.react-flow__node-draw)')));
       }}
       onPointerDownCapture={e => {
+        orbit.onPointerDown(e);
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
         if (target.closest('.dialog, .draw-dock, .react-flow__panel')) return;
         if (target.closest('.react-flow__node')) selectElementTool();
         else if (target.closest('.react-flow__pane, .draw-overlay')) restoreElementTool();
       }}
-      onKeyDownCapture={e => { if (e.key === "Escape") restoreElementTool(); }}
+      onKeyDownCapture={e => { if (e.key === "Escape") { if (orbit.active) stopOrbit(); restoreElementTool(); } }}
     >
       <ReactFlow<CanvasFlowNode, Edge>
         nodes={displayNodes}
         edges={displayEdges}
         nodeTypes={nodeTypes}
         onNodeClick={(e, node) => {
+          if (orbit.active) return stopOrbit();
           if (node.type === "blackhole" && (e.target as HTMLElement).closest(".black-hole-orb")) actions.toggleBlackHole(node.id);
           else if (summary && node.type === "summary") openSummary(node.id);
         }}
@@ -1831,7 +1858,7 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
         }}
         // Backspace/Delete pertencem ao terminal; nunca apagam nós.
         deleteKeyCode={null}
-        minZoom={0.2}
+        minZoom={orbit.active ? 0.1 : 0.2}
         maxZoom={2}
         colorMode={theme}
         proOptions={{ hideAttribution: true }}
@@ -1844,7 +1871,7 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
         <Panel position="top-left" className="universe-panel">
           {headerCollapsed
             ? <CollapsedTab side="top" label="a barra da galáxia" onClick={() => setHeaderCollapsed(false)}><strong>{universe ? `${workspace.name} · ${universe.name}` : workspace.name}</strong></CollapsedTab>
-            : <><UniverseBar workspace={workspace} universe={universe} onIndex={onIndex} /><CollapseButton side="top" label="a barra da galáxia" onClick={() => setHeaderCollapsed(true)} /></>}
+            : <><UniverseBar workspace={workspace} universe={universe} onIndex={onIndex} zenite={orbit.unlocked ? { active: orbit.active, toggle: toggleOrbit } : undefined} /><CollapseButton side="top" label="a barra da galáxia" onClick={() => setHeaderCollapsed(true)} /></>}
         </Panel>
         {folderViewport.current && nodes.some(n => n.id === folderViewport.current!.id && n.data.element?.blackHole?.collapsed === false) && !expanded && <Panel position="top-center" className="summary-close-panel">
           <button className="summary-close" onClick={() => { const id = folderViewport.current?.id; if (id) actions.toggleBlackHole(id); }}>Voltar ao canvas <kbd>Esc</kbd></button>
@@ -1921,6 +1948,7 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
           onToggleSummary={toggleSummary}
         />
       </ReactFlow>
+      {orbit.active && orbit.plan && <Suspense fallback={<div className="zenite-space-loading">Abrindo o Zênite…</div>}><ZeniteSpace plan={orbit.plan} nodes={displayNodes} edges={displayEdges} onClose={stopOrbit} /></Suspense>}
       {transferring && <div className="canvas-transfer-busy" role="status" aria-label="Transferindo elementos" />}
       {exportOpen && (
         <ExportCanvasDialog

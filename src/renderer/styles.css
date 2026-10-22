@@ -1205,6 +1205,42 @@ button {
   color: var(--sun-edge);
 }
 
+.universe-chip.zenite-chip {
+  border-color: #b18b4b;
+  color: #eac88d;
+}
+.universe-chip.zenite-chip.active {
+  background: #d8a84e1a;
+  box-shadow: 0 0 18px #e9b65d18;
+}
+.universe-chip.zenite-chip svg {
+  color: #eac88d !important;
+}
+
+.zenite-system > .react-flow { z-index: 8 !important; pointer-events: none; background: transparent !important; }
+.zenite-system .react-flow__pane { pointer-events: none !important; }
+.zenite-system .react-flow__viewport, .zenite-system .react-flow__background { visibility: hidden; }
+.zenite-system .react-flow__viewport { opacity: 0 !important; pointer-events: none !important; }
+.zenite-system .react-flow__node, .zenite-system .react-flow__edges { visibility: hidden !important; pointer-events: none !important; }
+.zenite-system .react-flow__panel { pointer-events: auto; }
+.zenite-system .dock-panel, .zenite-system .draw-dock, .zenite-system .agent-rail, .zenite-system .canvas-clipboard-panel, .zenite-system .minimap { display: none; }
+.zenite-space, .zenite-space-loading { position: absolute; inset: 0; z-index: 6; overflow: hidden; background: #050914; }
+.zenite-space-loading { display: grid; place-items: center; color: #e3ce9d; }
+.zenite-space-stage { position: absolute; inset: 0; }
+.zenite-space-webgl { display: block; width: 100%; height: 100%; touch-action: none; outline: none; cursor: grab; }
+.zenite-space-webgl:active { cursor: grabbing; }
+.zenite-space-webgl:focus-visible { outline: 1px solid #b3cae380; outline-offset: -3px; }
+.zenite-space-label { position: absolute; left: 0; top: 0; pointer-events: none; color: #c3d3e6; font: 500 11px var(--ui-font); letter-spacing: .025em; white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 5px #000, 0 0 10px #050914; }
+.zenite-space-label.sun { color: #ffe4a2; font-size: 14px; font-weight: 600; letter-spacing: .05em; }
+.zenite-space-controls { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 7px 9px 7px 17px; border: 1px solid #8ca5c02e; border-radius: 999px; background: #0c1423d9; backdrop-filter: blur(18px); color: #adbed3; box-shadow: 0 8px 36px #0005; }
+.zenite-space-controls > span { font-size: 11px; white-space: nowrap; padding-right: 8px; }
+.zenite-space-controls > button { width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: #c3d3e6; }
+.zenite-space-controls > button:hover { background: #a0bdd51a; color: #ffe4a2; }
+.zenite-space-controls > button:focus-visible { outline: 2px solid #e3ce9d; outline-offset: 2px; }
+.zenite-space-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 18px; background: #050914; color: #c3d3e6; }
+.zenite-space-error > button { border: 1px solid #8ca5c050; border-radius: 8px; padding: 8px 16px; background: #182237; color: #ffe4a2; }
+@media (max-width: 700px) { .zenite-space-controls > span { display: none; } .zenite-space-controls { padding: 7px; } }
+
 .universe-chip:not(.origin):not(.add) svg {
   color: var(--planet-edge);
 }
