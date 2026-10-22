@@ -1,7 +1,7 @@
 // Abre o aplicativo de produção com dados fictícios e grava seu compositor real.
 // Os únicos endpoints de controle são captura, início/fim de gravação e diagnóstico.
 const { app, BrowserWindow, session } = require('electron');
-const { mkdirSync, mkdtempSync, writeFileSync, copyFileSync, readFileSync, existsSync } = require('node:fs');
+const { mkdirSync, mkdtempSync, writeFileSync, copyFileSync, readFileSync, existsSync, readdirSync } = require('node:fs');
 const { join, resolve } = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
 const { createServer } = require('node:http');
@@ -79,9 +79,10 @@ canvases.agents=canvas([
   note('delivery-cli','Entrega CLI','# Aguardando os agentes\n\nO resultado real será registrado aqui.',450,530,400,260,'green'),
   el('project-cli','folder','Projeto conectado',0,420,330,320,{path:project}),
 ], [edge('sol-cli','builder-cli'),edge('sol-cli','reviewer-cli'),edge('sol-cli','brief-cli'),edge('builder-cli','brief-cli'),edge('reviewer-cli','brief-cli'),edge('sol-cli','delivery-cli'),edge('builder-cli','project-cli'),edge('reviewer-cli','project-cli')],{x:35,y:125,zoom:.66});
-const names = { studio: '01 · Canvas vivo', elements: '02 · Elementos', draw: '03 · Desenhe suas ideias', multiverse: '04 · Universos paralelos', flows: '05 · Fluxos em ação',agents:'06 · Sol e agentes CLI' };
+canvases.giant=require('./giant-canvas.cjs')({root,profile,project});
+const names = { studio: '01 · Canvas vivo', elements: '02 · Elementos', draw: '03 · Desenhe suas ideias', multiverse: '04 · Universos paralelos', flows: '05 · Fluxos em ação',agents:'06 · Sol e agentes CLI',giant:'07 · Canvas gigante' };
 for (const [id, state] of Object.entries(canvases)) writeFileSync(join(profile, 'workspaces', id + '.json'), JSON.stringify(state));
-const index = { version: 1, activeId: 'studio', workspaces: Object.entries(names).map(([id, name]) => ({ id, name, dir: project, universes: [] })), settings: { confirmQuit: false, agentGuide: false, agentPermissions: 'ask', isolatedAgents: false, notifyDone: false, notifyRequest: false } };
+const index = { version: 1, activeId: process.env.ZENITE_FILM_ACTIVE || 'studio', workspaces: Object.entries(names).map(([id, name]) => ({ id, name, dir: project, universes: [] })), settings: { confirmQuit: false, agentGuide: false, agentPermissions: 'ask', isolatedAgents: false, notifyDone: false, notifyRequest: false } };
 writeFileSync(join(profile, 'workspaces/index.json'), JSON.stringify(index));
 const seed = join(profile, 'seed.cjs');
 writeFileSync(seed, `if(!localStorage.getItem('studio.seed')){localStorage.setItem('studio.seed','true');localStorage.setItem('o.theme','"dark"');localStorage.setItem('o.accent','"indigo"');localStorage.setItem('o.summaryView','false');localStorage.setItem('o.canvasBg',JSON.stringify({pattern:'starfield',spacing:'large',size:1,intensity:.6,detail:.24}));localStorage.setItem('o.canvas',JSON.stringify({v:2,edge:'bezier',pulse:true,connectionAnimation:'aurora',connectionEffect:{color:'',activeSpeed:1,idleSpeed:.8},hideConnectionLine:true,startTool:'hand'}));}`);
@@ -133,6 +134,14 @@ const api = createServer(async (req, res) => {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.end('<body style="margin:0;background:#111425;color:#e9edff;font:17px Segoe UI;padding:45px"><small style="color:#9dacff;letter-spacing:4px">AURORA / ESTÚDIO</small><h1 style="font-size:46px;font-weight:400">Ideias encontram<br>o próximo passo.</h1><p style="color:#a4adc5;line-height:1.8">Um protótipo local, dentro do seu canvas.<br>Contexto perto de quem está construindo.</p><button onclick="this.textContent=\'Protótipo validado ✓\'" style="border:0;border-radius:9px;background:#a5b5ff;padding:14px 20px;margin-top:18px">Explorar o projeto →</button>');
     }
+    if (url.pathname === '/admin') { res.setHeader('Content-Type','text/html; charset=utf-8'); return res.end(readFileSync(join(__dirname,'admin-dashboard.html'))); }
+    if (url.pathname === '/data') {
+      // Estado publicado pelos terminais reais do canvas gigante, mais a tabela da sprint.
+      const data = {}, dir = join(project, '.status');
+      if (existsSync(dir)) for (const file of readdirSync(dir)) { try { data[file.replace('.json', '')] = JSON.parse(readFileSync(join(dir, file), 'utf8')); } catch {} }
+      try { data.sprint = JSON.parse(readFileSync(join(profile, 'tables', 'g-sprint.json'), 'utf8')).slice(1); } catch {}
+      return res.end(JSON.stringify(data));
+    }
     if (url.pathname === '/produced') { res.setHeader('Content-Type','text/html; charset=utf-8'); return res.end(readFileSync(join(project,'index.html'),'utf8')); }
     res.statusCode = 404; res.end('{}');
   } catch (error) { res.statusCode = 400; res.end(JSON.stringify({ error: error.message })); }
@@ -141,6 +150,8 @@ api.listen(0, '127.0.0.1', () => {
   apiPort = api.address().port;
   const state = canvases.elements; state.nodes.find(node => node.id === 'site').element.url = `http://127.0.0.1:${apiPort}/site`;
   writeFileSync(join(profile, 'workspaces/elements.json'), JSON.stringify(state));
+  const giant = canvases.giant; for (const node of giant.nodes) if (node.kind === 'web') node.element.url = `http://127.0.0.1:${apiPort}${node.element.url}`;
+  writeFileSync(join(profile, 'workspaces/giant.json'), JSON.stringify(giant));
   writeFileSync(join(out, 'studio.json'), JSON.stringify({ apiPort, profile, project }, null, 2));
 });
 app.whenReady().then(() => session.defaultSession.registerPreloadScript({ type: 'frame', filePath: seed }));
@@ -152,7 +163,7 @@ app.once('browser-window-created', (_event, window) => {
     win.showInactive();
     writeFileSync(join(out, 'ready.json'), JSON.stringify({ apiPort, profile, project, pid: process.pid }));
     console.log('STUDIO READY');
-    if (process.env.ZENITE_FILM_AUTORUN === '1') require(process.env.ZENITE_FILM_PHASE==='result'?'./take-result.cjs':process.env.ZENITE_FILM_PHASE==='completion'?'./take-completion.cjs':process.env.ZENITE_FILM_PHASE==='agents'?'./take-agents.cjs':'./take.cjs')({ win, out, profile, project, api: () => `http://127.0.0.1:${apiPort}` }).catch(error => { console.error(error.stack); writeFileSync(join(out, 'take-error.txt'), error.stack); });
+    if (process.env.ZENITE_FILM_AUTORUN === '1') require(process.env.ZENITE_FILM_PHASE==='giant'?'./take-giant.cjs':process.env.ZENITE_FILM_PHASE==='result'?'./take-result.cjs':process.env.ZENITE_FILM_PHASE==='completion'?'./take-completion.cjs':process.env.ZENITE_FILM_PHASE==='agents'?'./take-agents.cjs':'./take.cjs')({ win, out, profile, project, api: () => `http://127.0.0.1:${apiPort}` }).catch(error => { console.error(error.stack); writeFileSync(join(out, 'take-error.txt'), error.stack); });
   });
 });
 app.on('will-quit', () => { api.close(); if (active) { clearInterval(active.timer); active.process.stdin.end(); } });

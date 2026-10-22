@@ -1,0 +1,157 @@
+<!doctype html>
+<!-- Painel admin do projeto Aurora (comercial). Lê /data do estúdio: estado publicado pelos
+     terminais reais do canvas (git, servidor, verificação, sistema, empacotamento). -->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Aurora Admin</title>
+<style>
+  :root { --bg:#090b12; --side:#0d1019; --card:#11141f; --line:#1d2233; --text:#e8ecf8; --muted:#7d869f; --accent:#8ea2ff; --accent2:#b18cff; --green:#4fd1a5; --gold:#f2c46d; --red:#ff7a93; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--text); font:14px/1.45 "Segoe UI Variable Text","Segoe UI",system-ui,sans-serif; display:grid; grid-template-columns:232px 1fr; height:100vh; overflow:hidden; }
+  aside { background:var(--side); border-right:1px solid var(--line); padding:22px 16px; display:flex; flex-direction:column; gap:4px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:650; font-size:16px; padding:0 8px 22px; }
+  .logo { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:grid; place-items:center; color:#0b0e1a; font-weight:800; }
+  .group { color:#4d5570; font-size:11px; letter-spacing:.12em; text-transform:uppercase; padding:16px 10px 6px; }
+  nav a { display:flex; align-items:center; gap:11px; padding:9px 10px; border-radius:9px; color:#a6aec4; text-decoration:none; }
+  nav a.on { background:#171c2e; color:var(--text); box-shadow:inset 2px 0 var(--accent); }
+  nav a i { width:16px; height:16px; border-radius:5px; border:1.6px solid currentColor; opacity:.8; }
+  nav a .n { margin-left:auto; font-size:11px; background:#1d2440; color:var(--accent); padding:1px 7px; border-radius:20px; }
+  .env { margin-top:auto; border:1px solid var(--line); border-radius:12px; padding:12px; font-size:12px; color:var(--muted); }
+  .env b { color:var(--green); font-weight:600; }
+  main { overflow:hidden; padding:22px 28px; display:flex; flex-direction:column; gap:18px; }
+  header { display:flex; align-items:center; gap:14px; }
+  header h1 { font-size:22px; font-weight:650; letter-spacing:-.01em; }
+  header p { color:var(--muted); font-size:13px; }
+  .live { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--green); background:#10241f; border:1px solid #1b3b32; padding:4px 10px; border-radius:20px; margin-left:6px; }
+  .live:before { content:""; width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 var(--green); animation:p 1.6s infinite; }
+  @keyframes p { 70% { box-shadow:0 0 0 7px transparent; } }
+  .search { margin-left:auto; width:260px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:9px 12px; color:#566079; font-size:13px; }
+  .avatar { width:34px; height:34px; border-radius:50%; background:#232a44; display:grid; place-items:center; font-size:12px; font-weight:650; color:var(--accent); }
+  .kpis { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px 18px; min-width:0; }
+  .kpi small { color:var(--muted); font-size:12px; }
+  .kpi strong { display:block; font-size:27px; font-weight:650; letter-spacing:-.02em; margin:4px 0 2px; font-variant-numeric:tabular-nums; }
+  .kpi em { font-style:normal; font-size:12px; color:var(--green); }
+  .kpi em.warn { color:var(--gold); }
+  .grid { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:14px; flex:1; min-height:0; }
+  .col { display:flex; flex-direction:column; gap:14px; min-height:0; }
+  .row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; }
+  h2 { font-size:14px; font-weight:600; display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  h2 span { margin-left:auto; color:var(--muted); font-weight:400; font-size:12px; }
+  .legend { display:flex; gap:14px; font-size:12px; color:var(--muted); font-weight:400; margin-left:auto; }
+  .legend i { display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+  svg { display:block; width:100%; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td { padding:9px 0; border-top:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:0; }
+  td.h { font-family:"Cascadia Code",Consolas,monospace; color:var(--accent); width:76px; }
+  td.t { color:var(--muted); text-align:right; width:110px; }
+  .pill { font-size:11px; padding:2px 9px; border-radius:20px; font-weight:600; }
+  .ok { background:#12302a; color:var(--green); } .bad { background:#3a1621; color:var(--red); } .wip { background:#33290f; color:var(--gold); } .todo { background:#1b2034; color:#8d97b5; }
+  .check { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); font-size:13px; }
+  #feed > div { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; gap:10px; padding:7px 0; border-top:1px solid var(--line); font-size:12.5px; color:#b5bdd2; }
+  #feed > div b { color:var(--muted); font-weight:400; font-family:Consolas,monospace; }
+  .progress { height:8px; border-radius:8px; background:#1a1f30; overflow:hidden; margin:10px 0 4px; }
+  .progress i { display:block; height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:8px; transition:width .6s; }
+  .tasks div { display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid var(--line); font-size:13px; }
+  .tasks div span:first-child { flex:1; }
+  body.infra .kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.infra .grid, body.infra .row { grid-template-columns:minmax(0,1fr); }
+  body.infra aside { display:none; } body.infra { grid-template-columns:1fr; }
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand"><div class="logo">A</div>Aurora Admin</div>
+  <nav>
+    <a class="on" data-v="overview"><i></i>Visão geral</a>
+    <a><i></i>Entregas <span class="n" id="nav-commits">0</span></a>
+    <a data-v="quality"><i></i>Qualidade</a>
+    <a data-v="infra"><i></i>Infraestrutura</a>
+    <div class="group">Projeto</div>
+    <a><i></i>Sprint 43</a>
+    <a><i></i>Equipe</a>
+    <a><i></i>Configurações</a>
+  </nav>
+  <div class="env">Ambiente <b>local</b><br>Dados ao vivo dos terminais do canvas</div>
+</aside>
+<main>
+  <header>
+    <div><h1 id="title">Visão geral</h1><p>Projeto Aurora · Sprint 43</p></div>
+    <span class="live">Ao vivo</span>
+    <div class="search">Buscar no projeto…</div>
+    <div class="avatar">EA</div>
+  </header>
+  <section class="kpis" id="kpis"></section>
+  <section class="grid">
+    <div class="col">
+      <div class="card"><h2>Uso do sistema<div class="legend"><span><i style="background:var(--accent)"></i>CPU</span><span><i style="background:var(--green)"></i>Memória</span></div></h2><svg id="sys" height="170" viewBox="0 0 600 170" preserveAspectRatio="none"></svg></div>
+      <div class="row">
+        <div class="card"><h2>Latência do servidor<span id="lat-label"></span></h2><svg id="lat" height="120" viewBox="0 0 300 120" preserveAspectRatio="none"></svg></div>
+        <div class="card"><h2>Sprint 43<span id="sprint-label"></span></h2><div class="progress"><i id="sprint-bar" style="width:0"></i></div><div class="tasks" id="tasks"></div></div>
+      </div>
+      <div class="card" style="flex:1;min-height:0;overflow:hidden"><h2>Últimos commits<span id="commit-label"></span></h2><table id="commits"></table></div>
+    </div>
+    <div class="col">
+      <div class="card"><h2>Verificações<span id="check-label"></span></h2><div id="checks"></div></div>
+      <div class="card"><h2>Pacote<span id="bundle-label"></span></h2><svg id="bundle" height="70" viewBox="0 0 300 70" preserveAspectRatio="none"></svg></div>
+      <div class="card feed" style="flex:1;min-height:0;overflow:hidden"><h2>Atividade nos arquivos<span id="feed-label"></span></h2><div id="feed"></div></div>
+    </div>
+  </section>
+</main>
+<script>
+  const view = new URLSearchParams(location.search).get('view') || 'overview';
+  if (view === 'infra') { document.body.classList.add('infra'); document.getElementById('title').textContent = 'Infraestrutura'; document.querySelectorAll('nav a').forEach(a => a.classList.toggle('on', a.dataset.v === 'infra')); }
+  const $ = id => document.getElementById(id);
+  const fmt = n => n.toLocaleString('pt-BR');
+  const kb = b => (b / 1024).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' KB';
+  const pct = v => Math.round(v * 100) + '%';
+  const area = (values, w, h, color, max = 1) => {
+    if (values.length < 2) return '';
+    const step = w / (values.length - 1), pts = values.map((v, i) => [i * step, h - 8 - (v / max) * (h - 16)]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const id = 'g' + color.replace(/\W/g, '');
+    return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".35"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><path d="${line} L${w} ${h} L0 ${h}Z" fill="url(#${id})"/><path d="${line}" fill="none" stroke="${color}" stroke-width="2.2" vector-effect="non-scaling-stroke"/>`;
+  };
+  const grid = (w, h) => [0.25, 0.5, 0.75].map(f => `<line x1="0" x2="${w}" y1="${h * f}" y2="${h * f}" stroke="#1d2233" stroke-dasharray="3 5"/>`).join('');
+  const kpi = (label, value, note, warn) => `<div class="card kpi"><small>${label}</small><strong>${value}</strong><em class="${warn ? 'warn' : ''}">${note}</em></div>`;
+  async function tick() {
+    const d = await fetch('/data').then(r => r.json()).catch(() => null);
+    if (!d) return;
+    const { git = {}, server = {}, checks = {}, system = {}, bundle = {}, files = {}, sprint = [] } = d;
+    const lat = server.latency || [], p50 = lat.length ? [...lat].sort((a, b) => a - b)[Math.floor(lat.length / 2)] : 0;
+    const passed = (checks.checks || []).filter(c => c.ok).length, totalChecks = (checks.checks || []).length;
+    const cpu = system.cpu || [], mem = system.mem || [];
+    const kpis = [
+      kpi('Commits', fmt(git.commits || 0), '+1 a cada passo'),
+      kpi('Requisições', fmt(server.total || 0), 'servidor local'),
+      kpi('Latência p50', p50.toFixed(1) + ' ms', lat.length + ' amostras'),
+      kpi('Verificações', `${passed}/${totalChecks}`, 'rodada ' + (checks.round || 0), passed < totalChecks),
+      kpi('CPU', pct(cpu.at(-1) || 0), (system.cores || 0) + ' núcleos'),
+      kpi('Pacote gzip', kb(bundle.after || 0), bundle.before ? Math.round((1 - bundle.after / bundle.before) * 100) + '% menor' : '—'),
+    ];
+    $('kpis').innerHTML = (view === 'infra' ? [kpis[1], kpis[2], kpis[4], kpis[5]] : kpis).join('');
+    $('nav-commits').textContent = git.commits || 0;
+    $('sys').innerHTML = grid(600, 170) + area(mem, 600, 170, '#4fd1a5') + area(cpu, 600, 170, '#8ea2ff');
+    const max = Math.max(1, [...lat].sort((a, b) => a - b)[Math.floor(lat.length * .9)] || 1), bw = 300 / Math.max(lat.length, 1);
+    $('lat').innerHTML = grid(300, 120) + lat.map((v, i) => `<rect x="${i * bw + 1}" y="${120 - Math.min(v / max, 1) * 110}" width="${Math.max(bw - 2, 1)}" height="${Math.min(v / max, 1) * 110}" rx="2" fill="${i === lat.length - 1 ? '#b18cff' : '#8ea2ff'}" opacity="${0.45 + 0.55 * i / lat.length}"/>`).join('');
+    $('lat-label').textContent = 'p90 ' + max.toFixed(1) + ' ms';
+    $('commits').innerHTML = (git.recent || []).map(([h, s, t]) => `<tr><td class="h">${h}</td><td>${s}</td><td class="t">${t}</td></tr>`).join('');
+    $('commit-label').textContent = fmt(git.commits || 0) + ' no total';
+    $('checks').innerHTML = (checks.checks || []).map(c => `<div class="check">${c.label}<span class="pill ${c.ok ? 'ok' : 'bad'}">${c.ok ? 'aprovado' : 'falhou'}</span></div>`).join('');
+    $('check-label').textContent = `${passed}/${totalChecks}`;
+    const ratio = bundle.before ? bundle.after / bundle.before : 0;
+    $('bundle').innerHTML = `<rect x="0" y="12" width="300" height="18" rx="6" fill="#1a1f30"/><rect x="0" y="12" width="${300 * ratio}" height="18" rx="6" fill="#4fd1a5"/><text x="0" y="56" fill="#7d869f" font-size="12">${kb(bundle.before || 0)} → ${kb(bundle.after || 0)} · ${bundle.files || 0} arquivos · build #${bundle.build || 0}</text>`;
+    $('bundle-label').textContent = 'gzip';
+    $('feed').innerHTML = (files.recent || []).slice().reverse().map(e => `<div><b>${e.at}</b>${e.type === 'rename' ? 'criado' : 'alterado'} · ${e.name}</div>`).join('') || '<div>aguardando mudanças…</div>';
+    $('feed-label').textContent = fmt(files.total || 0) + ' eventos';
+    const done = sprint.filter(r => r[1] === 'Pronto').length;
+    $('sprint-bar').style.width = (sprint.length ? done / sprint.length * 100 : 0) + '%';
+    $('sprint-label').textContent = `${done}/${sprint.length} prontas`;
+    const cls = { 'Pronto': 'ok', 'Em revisão': 'wip', 'A seguir': 'todo' };
+    $('tasks').innerHTML = sprint.slice(0, 4).map(r => `<div><span>${r[0]}</span><span class="pill ${cls[r[1]] || 'todo'}">${r[1]}</span></div>`).join('');
+  }
+  tick(); setInterval(tick, 1000);
+</script>
+</body>
+</html>
