@@ -85,6 +85,7 @@ import { flushElementDrafts } from "./elementDrafts";
 import { CanvasClipboardBar } from "./components/CanvasClipboardBar";
 import { SUMMARY_SIZE, SUN_SIZE, SummaryNode } from "./components/SummaryNode";
 import { autoLayout, type LayoutGaps } from "./autoLayout";
+import { levelLayout } from "./levelLayout";
 import { useZeniteOrbit } from "./useZeniteOrbit";
 const ZeniteSpace = lazy(() => import("./components/ZeniteSpace"));
 import { arrowBindings, followArrows, frameMembers, type Bindings, type Piece } from "./draw/attach";
@@ -377,6 +378,21 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
   const layoutHistory = useRef<{ positions: Record<string, XY>; shapes?: Record<string, { width: number; height: number; draw: DrawSpec }>; viewport: Viewport; compact?: boolean }[]>([]);
   const layoutFitTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [layoutUndoCount, setLayoutUndoCount] = useState(0);
+  // Como o botão Organizar organiza (escolha lembrada) e se o canvas se organiza sozinho.
+  const [organizeModeState, setOrganizeModeState] = useState<"flow" | "level">(() => (readPref<string>("organizeMode", "flow") === "level" ? "level" : "flow"));
+  const organizeMode = useRef(organizeModeState);
+  const [autoOrganize, setAutoOrganize] = useState(() => readPref<boolean>("organizeAuto", false) === true);
+  const pickOrganizeMode = (mode: "flow" | "level") => {
+    organizeMode.current = mode;
+    setOrganizeModeState(mode);
+    writePref("organizeMode", mode);
+    uiRef.current.organize();
+  };
+  const toggleAutoOrganize = (on: boolean) => {
+    setAutoOrganize(on);
+    writePref("organizeAuto", on);
+    if (on) uiRef.current.organize();
+  };
   useEffect(() => () => clearTimeout(layoutFitTimer.current), []);
   useEffect(() => {
     mounted.current = true;
@@ -1350,7 +1366,13 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
     ];
     const layoutBoxes = compact ? outer.map(layoutBox) : [...outer.filter((n) => !blockOf.has(n.id)).map(layoutBox), ...blocks.map((b) => b.box)];
     // Cartões são pequenos: espaços menores, para o conjunto caber legível na tela.
-    const next = outer.length >= 2 ? autoLayout(layoutBoxes, links, eligible.filter((n) => !chosenIds.has(n.id)).map(layoutBox), compact ? COMPACT_GAPS : undefined) : {};
+    const obstacles = eligible.filter((n) => !chosenIds.has(n.id)).map(layoutBox);
+    // Por nível: o Sol no centro e um anel por distância de conexões. Sem Sol (ou com o Sol dentro de
+    // um quadro), cai no organizador pelo fluxo.
+    const sunNode = organizeMode.current === "level" ? eligible.find((n) => n.data.terminal?.sun && !blockOf.has(n.id)) : undefined;
+    const next = outer.length < 2 ? {}
+      : sunNode ? levelLayout(layoutBoxes, links, layoutBoxes.find((b) => b.id === sunNode.id) ?? layoutBox(sunNode), obstacles, compact ? COMPACT_GAPS : undefined)
+      : autoLayout(layoutBoxes, links, obstacles, compact ? COMPACT_GAPS : undefined);
     // Posição nova de cada coisa que anda: elementos soltos, e quadro + tudo o que está nele.
     const moved = new Map<string, XY>();
     if (!compact) {
@@ -1450,6 +1472,22 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
     }, 50);
   };
   uiRef.current = { organize: () => organizeAutomatically("all"), toggleSummary, bg };
+  // Organizar automaticamente: quando entra ou sai um elemento, ou muda uma ligação, organiza o canvas
+  // todo. Mexer na posição não conta (senão arrastar um elemento o devolveria ao lugar).
+  const structure = useMemo(() => [
+    nodes.filter((n) => n.type !== "draw").map((n) => n.id).sort().join(","),
+    edges.map((e) => `${e.source}>${e.target}`).sort().join(","),
+  ].join("|"), [nodes, edges]);
+  const lastStructure = useRef<string | null>(null);
+  useEffect(() => {
+    if (!loaded) return;
+    const first = lastStructure.current === null;
+    const changed = lastStructure.current !== structure;
+    lastStructure.current = structure;
+    if (first || !changed || !autoOrganize) return;
+    const timer = setTimeout(() => { if (mounted.current) uiRef.current.organize(); }, 600);
+    return () => clearTimeout(timer);
+  }, [structure, loaded, autoOrganize]);
   const undoLayout = () => {
     if (transferBusy.current) return;
     const previous = layoutHistory.current.pop();
@@ -1953,6 +1991,10 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
           canAutoLayout={nodes.filter((n) => n.type !== "draw").length >= 2}
           canUndoLayout={layoutUndoCount > 0}
           onAutoLayout={() => organizeAutomatically("all")}
+          organizeMode={organizeModeState}
+          onOrganizeMode={pickOrganizeMode}
+          autoOrganize={autoOrganize}
+          onAutoOrganize={toggleAutoOrganize}
           onUndoLayout={undoLayout}
           onFitCanvas={() => void flowRef.current?.fitView({ nodes: visibleNodes(), duration: 250, padding: 0.15 })}
           summary={summary}

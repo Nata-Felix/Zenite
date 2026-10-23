@@ -1,6 +1,6 @@
 import { CollapseButton, CollapsedTab, useCollapsed } from "./Collapsible";
 import { useEffect, useRef, useState } from "react";
-import { ChevronUp, KeyRound, Map as MapIcon, Maximize, Minus, Network, Orbit, Plus, RotateCcw, Workflow, Eclipse } from "lucide-react";
+import { Check, ChevronUp, KeyRound, Map as MapIcon, Maximize, Minus, Network, Orbit, Plus, RotateCcw, Workflow, Eclipse } from "lucide-react";
 import { runCommand } from "../commands";
 import { FLOW_TYPES } from "./FlowNode";
 import { Panel, useReactFlow, useViewport } from "@xyflow/react";
@@ -22,6 +22,12 @@ interface Props {
   canAutoLayout: boolean;
   canUndoLayout: boolean;
   onAutoLayout(): void;
+  /** Modo do botão Organizar: pelo fluxo (entrada e saída) ou por nível (anéis em volta do Sol). */
+  organizeMode: "flow" | "level";
+  onOrganizeMode(mode: "flow" | "level"): void;
+  /** Organiza sozinho quando entra ou sai um elemento ou muda uma ligação. */
+  autoOrganize: boolean;
+  onAutoOrganize(on: boolean): void;
   onUndoLayout(): void;
   onFitCanvas(): void;
   /** Visão resumida (cartões estilo n8n) ligada. */
@@ -29,7 +35,14 @@ interface Props {
   onToggleSummary(): void;
 }
 
-export function Dock({ onNew, onNewElement, minimap, onToggleMinimap, canAutoLayout, canUndoLayout, onAutoLayout, onUndoLayout, onFitCanvas, summary, onToggleSummary }: Props) {
+const ORGANIZE_MODES = [
+  { mode: "flow", label: "Pelo fluxo", hint: "Entrada à esquerda, saída à direita, seguindo as ligações", icon: Workflow },
+  { mode: "level", label: "Por nível", hint: "Sol no centro; cada nível de conexão forma um anel", icon: Orbit },
+] as const;
+
+export function Dock({ onNew, onNewElement, minimap, onToggleMinimap, canAutoLayout, canUndoLayout, onAutoLayout, organizeMode, onOrganizeMode, autoOrganize, onAutoOrganize, onUndoLayout, onFitCanvas, summary, onToggleSummary }: Props) {
+  const [organizeMenu, setOrganizeMenu] = useState(false);
+  const [organizeLeft, setOrganizeLeft] = useState(0);
   const [collapsed, setCollapsed] = useCollapsed("dock");
   const { zoomIn, zoomOut } = useReactFlow();
   const { zoom } = useViewport();
@@ -90,6 +103,22 @@ export function Dock({ onNew, onNewElement, minimap, onToggleMinimap, canAutoLay
           </button>
         </div>
       )}
+      {organizeMenu && (
+        <div className="dock-new-menu dock-organize-menu" role="menu" aria-label="Como organizar" style={{ left: organizeLeft, minWidth: 320 }} onMouseLeave={() => setOrganizeMenu(false)}>
+          {ORGANIZE_MODES.map((m) => (
+            <button key={m.mode} role="menuitemradio" aria-checked={organizeMode === m.mode} style={{ "--agent": "#8d9bff" } as React.CSSProperties} onClick={() => { setOrganizeMenu(false); onOrganizeMode(m.mode); }}>
+              <m.icon size={16} />
+              <span>{m.label}{organizeMode === m.mode && <Check size={13} className="dock-organize-check" />}</span>
+              <small>{m.hint}</small>
+            </button>
+          ))}
+          <button role="menuitemcheckbox" aria-checked={autoOrganize} style={{ "--agent": "#6dc8d2" } as React.CSSProperties} onClick={() => onAutoOrganize(!autoOrganize)}>
+            <RotateCcw size={16} />
+            <span>Organizar automaticamente{autoOrganize && <Check size={13} className="dock-organize-check" />}</span>
+            <small>Reorganiza sozinho quando entra ou sai um elemento ou muda uma ligação</small>
+          </button>
+        </div>
+      )}
       <div className="dock">
         <button
           ref={newButton}
@@ -128,8 +157,17 @@ export function Dock({ onNew, onNewElement, minimap, onToggleMinimap, canAutoLay
           <ParallelUniverseIcon size={16} />
         </button>
         <span className="dock-sep" />
-        <button className="dock-arrange" title="Organizar todo o canvas pelas conexões" aria-label="Organizar todo o canvas" disabled={!canAutoLayout} onClick={onAutoLayout}>
-          <Workflow size={16} /><span>Organizar</span>
+        <button className="dock-arrange" title={`Organizar todo o canvas — ${organizeMode === "level" ? "por nível" : "pelo fluxo"}${autoOrganize ? " (automático)" : ""}`} aria-label="Organizar todo o canvas" disabled={!canAutoLayout} onClick={onAutoLayout}>
+          {organizeMode === "level" ? <Orbit size={16} /> : <Workflow size={16} />}<span>Organizar</span>
+        </button>
+        <button className={`dock-arrange-more${autoOrganize ? " on" : ""}`} title="Escolher como organizar" aria-label="Escolher como organizar" aria-haspopup="menu" aria-expanded={organizeMenu} onClick={(e) => {
+          // O menu abre acima do botão, alinhado à direita dele.
+          const button = e.currentTarget.getBoundingClientRect();
+          const panel = e.currentTarget.closest(".dock-panel")?.getBoundingClientRect();
+          if (panel) setOrganizeLeft(Math.max(0, button.right - panel.left - 320));
+          setOrganizeMenu((o) => !o);
+        }}>
+          <ChevronUp size={13} />
         </button>
         <button title="Desfazer última organização automática" aria-label="Desfazer organização" disabled={!canUndoLayout} onClick={onUndoLayout}>
           <RotateCcw size={15} />

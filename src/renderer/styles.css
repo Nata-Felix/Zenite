@@ -428,6 +428,10 @@ button {
 }
 .dock button:disabled { opacity: 0.35; cursor: default; background: transparent; }
 .dock .dock-arrange { color: var(--text); }
+.dock .dock-arrange-more { width: 20px; padding: 0; margin-left: -6px; opacity: 0.8; }
+.dock .dock-arrange-more.on { color: #6dc8d2; opacity: 1; }
+.dock-organize-menu { z-index: 20; }
+.dock-organize-check { margin-left: 6px; vertical-align: -2px; color: var(--accent); }
 .dock button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .dock .dock-new-caret { opacity: 0.75; margin-left: -2px; }
