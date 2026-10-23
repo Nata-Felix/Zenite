@@ -128,6 +128,10 @@ Ctrl+Z do usuário como um passo só. Nomes ou ids (#ab12cd34, do zn canvas) ser
                             --size LxA (sem nada: ao lado do Sol, sem cobrir ninguém)
   zn node create TIPO "Nome" [onde] [--link "A;B"] [--text "conteúdo"] [--url URL] [--path CAMINHO] [--color #hex]
                                       TIPO: nota, tabela, site, arquivo, pasta, imagem, vídeo
+                                      Antes de criar, veja zn canvas e use o que já existe. Lista, status ou
+                                      registro por item (vídeos, tarefas, pedidos) é UMA tabela, nunca várias
+                                      notas; nota é texto corrido de um assunto. O zn recusa notas repetidas
+                                      ("Vídeo 1", "Vídeo 2"...); --new só quando precisa mesmo de outra.
   zn node move "Nome" X,Y | --by DX,DY | --near "Outro" [--side ...]
   zn node resize "Nome" LxA            zn node rename "Nome" "Novo nome"
   zn node front|back "Nome"            Na frente / atrás dos outros
@@ -555,6 +559,7 @@ async function main(argv: string[]): Promise<number> {
         lines.push("Você também mexe no canvas inteiro: zn canvas (ver tudo), zn recruit/dismiss (equipe), zn node, zn connect,");
         lines.push("zn flow create/edit (astros) e zn draw (setas, quadros, textos). Olhe o zn canvas e reaproveite quem já existe antes de criar:");
         lines.push("terminal parado ou sem papel, do agente que a tarefa pede, recebe o trabalho (zn ask; defina o papel com zn terminal edit --role). Só recrute se não houver.");
+        lines.push("Também com notas, tabelas e arquivos: grave no que já existe (zn table set/write, zn note append) antes de criar outro. Lista ou status por item é uma tabela, não várias notas.");
       }
       if (r.place) {
         const where = r.place.universe ? `universo "${r.place.universe}"${r.place.branch ? ` (branch ${r.place.branch})` : ""}` : "Origem";
@@ -703,7 +708,7 @@ async function main(argv: string[]): Promise<number> {
       if (action === "create") {
         if (!name) throw new CliError('Uso: zn note create "Nome" ["conteúdo"]');
         const content = text !== undefined || flags.has("--file") ? messageFrom(text, flags) : "";
-        const r = await call("/note", { action, title: name, content });
+        const r = await call("/note", { action, title: name, content, new: flags.has("--new") });
         print(`Nota "${r.title}" criada e ligada a você.`, r);
         return 0;
       }
@@ -969,7 +974,7 @@ async function main(argv: string[]): Promise<number> {
         if (kind === "blackhole") element.blackHole = { members: [], collapsed: true, ...jsonFlag(flags) };
         if (kind === "web" && !url) throw new CliError("Site precisa de --url.");
         const content = str(flags, "--text") ?? (flags.has("--file") ? messageFrom(undefined, flags) : undefined);
-        await applyOps([{ op: "create", kind, title: a2, element, links: names(str(flags, "--link")), ...(content ? { content } : {}), ...placement(flags) }], print);
+        await applyOps([{ op: "create", kind, title: a2, element, links: names(str(flags, "--link")), ...(content ? { content } : {}), ...placement(flags) }], print, "", { new: flags.has("--new") });
         return 0;
       }
       if (!name) throw new CliError("Uso: zn node create|move|resize|rename|front|back|edit|delete ... (veja zn help)");

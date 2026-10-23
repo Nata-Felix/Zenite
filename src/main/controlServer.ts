@@ -7,7 +7,7 @@ import { fileInfo, listDir } from "./files";
 import { humanSize, shortDate } from "../shared/format";
 import { parseCsv, tableToMarkdown } from "./elements";
 import type { AccountAgent, AccountMeta, AgentProvider, CanvasState, ElementKind, ElementSpec, FlowSpec, FlowStatus, NodeKind, TaskStatus, TerminalSpec, TerminalUsage } from "../shared/types";
-import { KIND_LABEL, TASK_STATES, type TaskState } from "../shared/types";
+import { KIND_LABEL, nodeKind, TASK_STATES, type TaskState } from "../shared/types";
 import { describeCanvas, labelOf, type CanvasOp, type CanvasOpsReply, type CanvasUiAction, type CanvasUiReply } from "../shared/canvasOps";
 import type { RoleStore, SolLog } from "./solTools";
 import {
@@ -630,7 +630,14 @@ export class ControlServer {
       }
     });
     // Recrutar só quando ninguém do canvas serve: um terminal livre do mesmo agente é reaproveitado.
-    if (!(typeof body.universe === "string" && body.universe.trim()) && body.new !== true) await this.requireNoIdleTerminal(canvasId, hood, ops);
+    if (!(typeof body.universe === "string" && body.universe.trim()) && body.new !== true) {
+      await this.requireNoIdleTerminal(canvasId, hood, ops);
+      const notes = ops.flatMap((op) => (op.op === "create" && op.kind === "note" ? [op.title ?? "Nota"] : []));
+      if (notes.length) {
+        const state = await this.elements.canvasOps!(canvasId, [], hood.me.id);
+        if (state.ok) this.requireWorthyNotes(notes, state.state.nodes.map((n) => ({ kind: nodeKind(n), title: labelOf(n) })));
+      }
+    }
     const reply = await this.elements.canvasOps!(canvasId, ops, hood.me.id);
     if (!reply.ok) {
       // Lote recusado: a mídia já copiada para a pasta do app não fica órfã.
@@ -677,6 +684,31 @@ export class ControlServer {
   }
 
   /** Traduz o que o CLI manda em nomes (agente, conta) para o que o canvas guarda (comando, id da conta). */
+  /**
+   * Notas demais: várias notas com o mesmo molde de nome ("Vídeo 1", "Vídeo 2"...) são registros, e
+   * registros pedem uma tabela (uma linha por item, uma coluna para o status). --new cria mesmo assim.
+   */
+  private requireWorthyNotes(titles: string[], existing: { kind: string; title: string }[]): void {
+    const stem = (title: string) => title.toLowerCase().replace(/[\d\s\p{P}_]+/gu, "");
+    const notes = existing.filter((e) => e.kind === "note");
+    const seen = new Map<string, string>();
+    for (const e of notes) seen.set(stem(e.title), e.title);
+    let repeated: string | undefined;
+    for (const title of titles) {
+      const key = stem(title);
+      if (key && seen.has(key)) { repeated = `"${title}" e "${seen.get(key)}"`; break; }
+      seen.set(key, title);
+    }
+    if (!repeated && titles.length < 3) return;
+    const tables = existing.filter((e) => e.kind === "table").map((e) => `"${e.title}"`);
+    throw new Error([
+      repeated ? `${repeated} parecem registros da mesma lista em notas separadas.` : `${titles.length} notas de uma vez parecem uma lista.`,
+      "Lista, status ou registro por item é uma tabela (uma linha por item): zn table create \"Nome\" \"coluna1,coluna2\\n...\", ou grave na que já existe com zn table set/write.",
+      tables.length ? `Tabelas que já existem no canvas: ${tables.join(", ")}.` : "",
+      "Nota é só para texto corrido sobre um assunto; para acrescentar, use zn note append na nota existente. Se precisa mesmo de outra nota, use --new.",
+    ].filter(Boolean).join(" "));
+  }
+
   /**
    * zn recruit com terminal parado: se o canvas já tem um terminal vivo do mesmo agente (e da mesma
    * conta e modelo, quando pedidos) que não está trabalhando, o Sol deve usá-lo. --new recruta mesmo assim.
@@ -1084,6 +1116,7 @@ export class ControlServer {
     const action = String(body.action ?? "");
     if (action === "create") {
       this.requireSun(hood);
+      if (body.new !== true) this.requireWorthyNotes([String(body.title ?? "Nota")], [...hood.linked, ...hood.others]);
       const created = this.elements.addLinkedElement(hood.me.id, "note", String(body.title ?? "Nota"));
       if (!created) throw new HttpError(404, "Este terminal não está em nenhum canvas.");
       this.elements.writeNote(created.element.id, typeof body.content === "string" ? body.content : "", true);
