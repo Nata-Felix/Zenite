@@ -1,5 +1,6 @@
 import { arrowBindings, followArrows, frameMembers, type Piece } from "./attach";
 import { connectionError } from "./connections";
+import { nearestFreeSpot } from "./freeSpot";
 import { FLOW_LABEL, FLOW_TYPE_LIST, newFlowSpec, outputsOf } from "./flows";
 import {
   KIND_LABEL,
@@ -153,10 +154,6 @@ export function labelOf(n: CanvasNode): string {
 
 const pieceOf = (n: CanvasNode): Piece => ({ id: n.id, x: n.x, y: n.y, w: n.width, h: n.height, ...(n.draw ? { draw: n.draw } : {}) });
 
-function overlaps(a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }, pad = 24): boolean {
-  return a.x < b.x + b.width + pad && b.x < a.x + a.width + pad && a.y < b.y + b.height + pad && b.y < a.y + a.height + pad;
-}
-
 export function applyCanvasOps(state: CanvasState, ops: CanvasOp[], ctx: OpsContext): OpsOutcome {
   let nodes = state.nodes.map((n) => ({ ...n }));
   let edges = state.edges.map((e) => ({ ...e }));
@@ -203,13 +200,8 @@ export function applyCanvasOps(state: CanvasState, ops: CanvasOp[], ctx: OpsCont
       : side === "left" ? { x: anchor.x - size.width - GAP, y: anchor.y }
       : side === "below" ? { x: anchor.x, y: anchor.y + anchor.height + GAP }
       : { x: anchor.x, y: anchor.y - size.height - GAP };
-    for (let i = 0; i < 200; i++) {
-      const hit = solid.find((n) => overlaps({ ...spot, ...size }, box(n)));
-      if (!hit) break;
-      if (side === "right" || side === "left") spot.y = hit.y + hit.height + 40;
-      else spot.x = hit.x + hit.width + 40;
-    }
-    return spot;
+    // Fica o mais perto possível do lugar pedido, em volta do Sol, sem cobrir nenhum elemento.
+    return nearestFreeSpot(size, spot, [...solid, ...(anchor ? [anchor] : [])].map(box));
   };
 
   const topZ = () => Math.max(0, ...nodes.filter((n) => n.kind !== "draw").map((n) => n.z ?? 0)) + 1;

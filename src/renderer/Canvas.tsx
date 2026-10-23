@@ -36,6 +36,7 @@ import {
 } from "../shared/types";
 import type { AgentPreset } from "./agents";
 import { agentOf } from "../main/agentControl";
+import { nearestFreeSpot } from "../shared/freeSpot";
 import { Dock } from "./components/Dock";
 import { EmptyState } from "./components/EmptyState";
 import { ExportCanvasDialog } from "./components/ExportCanvasDialog";
@@ -1643,18 +1644,23 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
     actions.snapshot();
     const scale = SIZE_SCALE[itemPrefs().sizes[kind] ?? "medium"];
     const size = { width: Math.round(SIZES[kind].width * scale), height: Math.round(SIZES[kind].height * scale) };
-    setNodes((ns) => [
-      ...ns,
-      {
-        id: (data.terminal?.id ?? data.element?.id)!,
-        type: kind,
-        position: { x: center.x - size.width / 2, y: center.y - size.height / 2 },
-        ...size,
-        zIndex: topZ(ns),
-        dragHandle: ".drag-handle",
-        data: { ...data, actions },
-      },
-    ]);
+    setNodes((ns) => {
+      // Nunca nasce em cima de outro elemento: se o lugar pedido está ocupado, usa o livre mais próximo.
+      const obstacles = ns.filter((n) => n.type !== "draw").map((n) => ({ x: n.position.x, y: n.position.y, width: n.measured?.width ?? n.width ?? 168, height: n.measured?.height ?? n.height ?? 90 }));
+      const position = nearestFreeSpot(size, { x: center.x - size.width / 2, y: center.y - size.height / 2 }, obstacles);
+      return [
+        ...ns,
+        {
+          id: (data.terminal?.id ?? data.element?.id)!,
+          type: kind,
+          position,
+          ...size,
+          zIndex: topZ(ns),
+          dragHandle: ".drag-handle",
+          data: { ...data, actions },
+        },
+      ];
+    });
   };
 
   const createTerminal = async (input: NewTerminalInput, useAsGalaxyDir: boolean) => {

@@ -43,7 +43,10 @@ test("cria ao lado do Sol, sem cobrir ninguém, com nome único", () => {
   assert.equal(a.element.title, "Plano");
   assert.equal(b.element.title, "Plano 2");
   assert.equal(a.x, 640 + 80);
-  assert.ok(b.y >= a.y + a.height, "a segunda nota vai para baixo da primeira");
+  const apart = a.x >= b.x + b.width || b.x >= a.x + a.width || a.y >= b.y + b.height || b.y >= a.y + a.height;
+  assert.ok(apart, "a segunda nota não cobre a primeira");
+  const sun = state.nodes.find((x) => x.id === "sol-0001");
+  assert.ok(Math.hypot(b.x - sun.x, b.y - sun.y) < 900, "a segunda nota fica perto do Sol");
   assert.ok(a.z >= 1 && b.z > a.z, "elemento novo nasce na frente");
 });
 
@@ -157,4 +160,16 @@ test("terminal guarda a função ao ser criado e ao ser editado, e o zn canvas m
   state = run(state, [{ op: "update", target: "Claude 2", terminal: { role: "Testes" } }]).state;
   assert.equal(byTitle(state, "Claude 2").terminal.role, "Testes");
   assert.equal(describeCanvas(state).nodes.find((x) => x.title === "Claude 2").role, "Testes");
+});
+
+test("vários elementos seguidos ficam em volta do Sol, perto e sem se cobrir", () => {
+  const { state, results } = run(base(), Array.from({ length: 8 }, (_, i) => ({ op: "create", kind: "note", title: `N${i}` })));
+  const made = results.map((r) => state.nodes.find((x) => x.id === r.id));
+  const sun = state.nodes.find((x) => x.id === "sol-0001");
+  made.forEach((a, i) => {
+    assert.ok(Math.hypot(a.x - sun.x, a.y - sun.y) < 1600, `N${i} não pode nascer longe do Sol`);
+    for (const b of state.nodes.filter((x) => x.id !== a.id && x.kind !== "draw")) {
+      assert.ok(a.x >= b.x + b.width || b.x >= a.x + a.width || a.y >= b.y + b.height || b.y >= a.y + a.height, `N${i} cobre ${b.id}`);
+    }
+  });
 });
