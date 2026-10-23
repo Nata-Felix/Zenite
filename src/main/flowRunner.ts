@@ -35,7 +35,12 @@ export interface FlowDeps {
   status(s: FlowStatus): void;
   /** Pediram para parar (zn flow stop): o próximo passo não começa. */
   stopped?(): boolean;
+  /** O texto está passando de um passo para o outro: a linha entre eles ganha o pulso de envio. */
+  link?(from: string, to: string): void;
 }
+
+/** Tempo que o pulso leva para atravessar uma ligação antes do passo seguinte (a animação ativa dura ~1,1 s). */
+export const LINK_TRAVEL_MS = 1200;
 
 /** Passos no máximo por execução: uma Órbita mal ligada não roda para sempre. */
 export const MAX_STEPS = 500;
@@ -318,7 +323,13 @@ export async function runFlow(canvas: CanvasState, startId: string, deps: FlowDe
     }
     await Promise.all(out(node.id).filter(take).map(async (e) => {
       const target = nodeOf(e.target);
-      if (target) await visit(target, { entrada: next.entrada, vars: { ...next.vars } }, e);
+      if (!target) return;
+      if (deps.link) {
+        // Acende a ligação e espera o pulso atravessá-la antes de o próximo passo começar.
+        deps.link(node.id, target.id);
+        await new Promise((resolve) => setTimeout(resolve, LINK_TRAVEL_MS));
+      }
+      await visit(target, { entrada: next.entrada, vars: { ...next.vars } }, e);
     }));
   };
 

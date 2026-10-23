@@ -1438,6 +1438,7 @@ app.whenReady().then(async () => {
           win?.webContents.send("flow:status", s);
         },
         stopped: () => stopFlows.has(startId),
+        link: (from, to) => win?.webContents.send("canvas:flow", from, to),
         hasQuota: (spec) => !codexReached(spec),
         deliver: async (terminalId, text) => {
           const t = state.nodes.find((n) => n.id === terminalId)?.terminal;
