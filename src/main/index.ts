@@ -947,6 +947,7 @@ app.whenReady().then(async () => {
     const place = placeOf(req.id);
     const canvas = place && store.loadCanvas(place.canvasId);
     if (!place || !canvas?.nodes.some((n) => n.id === req.id && n.kind === "terminal")) return { ok: false, error: "Terminal não encontrado no canvas salvo." };
+    if (req.sun === true && agentOf(req.command ?? "", req.provider) === "shell") return { ok: false, error: "Um terminal Shell não pode ser o Sol. Use um agente (Codex, Claude Code, Antigravity ou Grok)." };
     suns.set(place.canvasId, req.id, req.sun === true);
     store.saveCanvas(place.canvasId, canvas);
     if (req.sun !== true) { solWelcomes.delete(req.id); return { ok: true, fullAccess: false }; }

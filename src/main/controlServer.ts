@@ -629,6 +629,8 @@ export class ControlServer {
         throw new HttpError(400, raw.length > 1 ? `Operação ${i + 1}: ${(err as Error).message}` : (err as Error).message);
       }
     });
+    // Recrutar só quando ninguém do canvas serve: um terminal livre do mesmo agente é reaproveitado.
+    if (!(typeof body.universe === "string" && body.universe.trim()) && body.new !== true) await this.requireNoIdleTerminal(canvasId, hood, ops);
     const reply = await this.elements.canvasOps!(canvasId, ops, hood.me.id);
     if (!reply.ok) {
       // Lote recusado: a mídia já copiada para a pasta do app não fica órfã.
@@ -675,6 +677,45 @@ export class ControlServer {
   }
 
   /** Traduz o que o CLI manda em nomes (agente, conta) para o que o canvas guarda (comando, id da conta). */
+  /**
+   * zn recruit com terminal parado: se o canvas já tem um terminal vivo do mesmo agente (e da mesma
+   * conta e modelo, quando pedidos) que não está trabalhando, o Sol deve usá-lo. --new recruta mesmo assim.
+   */
+  private async requireNoIdleTerminal(canvasId: string, hood: Neighborhood, ops: CanvasOp[]): Promise<void> {
+    const wanted = ops.filter((op) => op.op === "create" && op.kind === "terminal");
+    if (!wanted.length) return;
+    const reply = await this.elements.canvasOps!(canvasId, [], hood.me.id);
+    if (!reply.ok) return;
+    const taken = new Set<string>();
+    for (const op of wanted) {
+      const t = (op.op === "create" ? op.terminal ?? {} : {}) as Record<string, unknown>;
+      const command = typeof t.command === "string" ? t.command : "";
+      const provider = t.provider as AgentProvider | undefined;
+      const kind = agentOf(command, provider);
+      // Shell e comandos soltos não têm "papel de agente" para reaproveitar.
+      if (kind === "shell" || kind === "other") continue;
+      const model = modelAndEffortOf(kind, command).model;
+      const found: string[] = [];
+      for (const n of reply.state.nodes) {
+        if (!n.terminal || n.terminal.sun || n.id === hood.me.id || taken.has(n.id) || !this.ptys.has(n.id)) continue;
+        if (agentOf(n.terminal.command ?? "", n.terminal.provider) !== kind) continue;
+        if (typeof t.account === "string" && t.account !== n.terminal.account) continue;
+        if (model && modelAndEffortOf(kind, n.terminal.command ?? "").model !== model) continue;
+        const state = this.tasks.get(n.id)?.state;
+        if (state === "trabalhando" || state === "bloqueado") continue;
+        if (looksBusy((await this.ptys.snapshot(n.id, 40)) ?? "")) continue;
+        found.push(n.id);
+      }
+      if (!found.length) continue;
+      taken.add(found[0]);
+      const list = found.map((id) => {
+        const n = reply.state.nodes.find((x) => x.id === id)!;
+        return `"${n.terminal!.title}"${n.terminal!.role ? ` (papel: ${n.terminal!.role})` : " (sem papel)"}`;
+      }).join(", ");
+      throw new Error(`Já há ${AGENT_LABEL[kind]} livre no canvas: ${list}. Reaproveite com zn ask "Nome" --no-wait "..." (se precisar, defina o papel com zn terminal edit "Nome" --role "..."). Se precisa mesmo de outro terminal, use zn recruit ... --new.`);
+    }
+  }
+
   private prepareOp(op: CanvasOp, hood: Neighborhood, dir = hood.place?.dir ?? ""): CanvasOp {
     if (!op || typeof op !== "object" || typeof op.op !== "string") throw new Error("Operação inválida.");
     if (this.elements.isolatedSession?.(hood.me.id)) {

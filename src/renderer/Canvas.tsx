@@ -35,6 +35,7 @@ import {
   storedEdge,
 } from "../shared/types";
 import type { AgentPreset } from "./agents";
+import { agentOf } from "../main/agentControl";
 import { Dock } from "./components/Dock";
 import { EmptyState } from "./components/EmptyState";
 import { ExportCanvasDialog } from "./components/ExportCanvasDialog";
@@ -870,6 +871,10 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
     const target = nodesRef.current.find((n) => n.id === id)?.data.terminal;
     if (!target) return;
     const on = !target.sun;
+    if (on && agentOf(target.command ?? "", target.provider) === "shell") {
+      setTransferNotice("Um terminal Shell não pode ser o Sol. Use um agente (Codex, Claude Code, Antigravity ou Grok).");
+      return;
+    }
     actions.snapshot();
     setNodes((ns) => {
       return ns.map((n) => {

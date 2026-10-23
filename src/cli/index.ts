@@ -139,9 +139,12 @@ Ctrl+Z do usuário como um passo só. Nomes ou ids (#ab12cd34, do zn canvas) ser
   zn disconnect "A" "B"                Desliga
 
   zn recruit "Nome" --agent codex|claude|antigravity|grok|openrouter|shell [--account "Conta"]
-         [--command "linha"] [--cwd PASTA] [--model M] [--effort E] [--role "Papel"] [--universe "Nome"] [onde]
+         [--command "linha"] [--cwd PASTA] [--model M] [--effort E] [--role "Papel"] [--universe "Nome"] [--new] [onde]
                                       Terminal novo, já ligado a você. --role: manda o papel salvo como
                                       primeira mensagem quando o agente abrir. --universe: nasce no universo.
+                                      Antes de recrutar, veja zn canvas: se já há um terminal livre do mesmo
+                                      agente (sem papel ou parado), use-o com zn ask. O zn recusa o recrutamento
+                                      nesse caso; --new só quando precisa mesmo de outro terminal.
   zn dismiss "Nome"                    Fecha o terminal e tira do canvas
   zn replace "Nome" --agent ... [--account ...]     Troca agente/conta no mesmo lugar, com as mesmas ligações
   zn terminal edit "Nome" [--role "Função"] [--color #hex] [--font-size N] [--model M] [--effort E] [--command "..."] [--cwd PASTA]
@@ -459,8 +462,8 @@ function copyOp(node: any, where: Record<string, unknown>): Record<string, unkno
 }
 
 /** Manda um lote ao Zênite e escreve o que aconteceu, uma linha por operação. */
-async function applyOps(ops: object[], print: (text: string, data: object) => void, note = ""): Promise<Record<string, any>> {
-  const r = await call("/canvas", { ops });
+async function applyOps(ops: object[], print: (text: string, data: object) => void, note = "", extra: Record<string, unknown> = {}): Promise<Record<string, any>> {
+  const r = await call("/canvas", { ops, ...extra });
   const verb: Record<string, string> = { create: "Criado", update: "Mudado", delete: "Apagado", connect: "Ligado", disconnect: "Desligado" };
   const lines = r.results.map((x: any) => `${verb[x.op] ?? x.op}: ${KIND[x.kind] ?? x.kind} "${x.title}" (#${x.id.slice(0, 8)})`);
   print([...lines, ...(note ? [note] : [])].join("\n"), r);
@@ -550,7 +553,8 @@ async function main(argv: string[]): Promise<number> {
         lines.push("Papel: você é o Sol, o orquestrador desta galáxia. Planeje, divida o trabalho e delegue aos terminais");
         lines.push("ligados com zn ask --no-wait (um assunto por pedido); junte e confira os resultados. Não faça o trabalho pesado sozinho.");
         lines.push("Você também mexe no canvas inteiro: zn canvas (ver tudo), zn recruit/dismiss (equipe), zn node, zn connect,");
-        lines.push("zn flow create/edit (astros) e zn draw (setas, quadros, textos). Olhe o zn canvas e reaproveite quem já existe antes de criar.");
+        lines.push("zn flow create/edit (astros) e zn draw (setas, quadros, textos). Olhe o zn canvas e reaproveite quem já existe antes de criar:");
+        lines.push("terminal parado ou sem papel, do agente que a tarefa pede, recebe o trabalho (zn ask; defina o papel com zn terminal edit --role). Só recrute se não houver.");
       }
       if (r.place) {
         const where = r.place.universe ? `universo "${r.place.universe}"${r.place.branch ? ` (branch ${r.place.branch})` : ""}` : "Origem";
@@ -943,7 +947,7 @@ async function main(argv: string[]): Promise<number> {
         }
         const ops = Array.isArray(parsed) ? parsed : (parsed as { ops?: unknown[] })?.ops;
         if (!Array.isArray(ops)) throw new CliError('O lote precisa ser uma lista de operações ou {"ops": [...]}.');
-        await applyOps(ops, print);
+        await applyOps(ops, print, "", { new: flags.has("--new") });
         return 0;
       }
       throw new CliError("Uso: zn canvas | zn canvas show \"Nome\" | zn canvas apply arquivo.json");
@@ -1077,7 +1081,7 @@ async function main(argv: string[]): Promise<number> {
       if (role) terminal.role = role;
       // Num universo, o canvas é outro: não dá para ligar ao Sol, mas o Sol alcança pelo nome.
       const links = universe ? names(str(flags, "--link")) : [process.env.O_TERMINAL_ID, ...names(str(flags, "--link"))];
-      const r = await call("/canvas", { ops: [{ op: "create", kind: "terminal", title: name, terminal, links, ...(role ? { role } : {}), ...placement(flags) }], ...(universe ? { universe } : {}) });
+      const r = await call("/canvas", { ops: [{ op: "create", kind: "terminal", title: name, terminal, links, ...(role ? { role } : {}), ...placement(flags) }], ...(universe ? { universe } : {}), new: flags.has("--new") });
       const made = r.results[0];
       const lines = [`Criado: terminal "${made.title}" (#${made.id.slice(0, 8)})${universe ? ` no universo "${universe}"` : " e ligado a você"}.`];
       lines.push(role ? `O papel "${role}" vai como primeira mensagem quando o agente terminar de abrir.` : `Espere uns segundos o agente abrir e mande o primeiro pedido: zn ask "${made.title}" --no-wait "..."`);
@@ -1247,7 +1251,7 @@ async function main(argv: string[]): Promise<number> {
         { op: "delete", target: `#${node.id}`, kind: "terminal" },
         { op: "create", kind: "terminal", title, terminal, at: { x: node.x, y: node.y }, width: node.width, height: node.height },
         ...links.map((l: any) => ({ op: "connect", from: l.from, to: l.to, ...(l.output ? { output: l.output } : {}) })),
-      ], print);
+      ], print, "", { new: true });
       return 0;
     }
 
