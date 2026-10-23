@@ -4295,6 +4295,7 @@ kbd {
   cursor: pointer;
 }
 .agent-rail-item:hover { background: var(--hover); }
+.agent-rail-item.picking { background: var(--hover); box-shadow: 0 0 0 2px var(--agent); }
 .agent-rail-icon {
   position: relative;
   display: grid;
