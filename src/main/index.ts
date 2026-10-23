@@ -715,6 +715,8 @@ app.whenReady().then(async () => {
     try { stashed = files.map((f) => f.startsWith(attachmentsDir) ? f : stashAttachment(attachmentsDir, f)); }
     catch (error) { return { ok: false, errors: [(error as Error).message] }; }
     const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    // A caixa só espera a validação; as pausas entre colar e dar Enter seguem em segundo plano.
+    const deliveries: Promise<void>[] = [];
     await Promise.all(targets.map(async (id) => {
       const spec = terminalSpec(id);
       const title = spec?.title ?? "Terminal";
@@ -723,12 +725,15 @@ app.whenReady().then(async () => {
         const screen = (await ptys.snapshot(id, 40)) ?? "";
         if (waitingForChoice(screen, !!parseMenu(screen))) throw new Error(`"${title}" está esperando uma resposta na tela (menu, termos ou permissão). Responda no terminal e envie de novo.`);
         const paths = isolatedRuntime.has(id) ? await Promise.all(stashed.map((f) => isolatedRuntime.copyIn(id, f))) : stashed;
-        for (const step of composeSteps(agentOf(spec.command ?? "", spec.provider), text, paths)) {
-          if ("submit" in step) { await pause(600); ptys.write(id, "\r"); continue; }
-          // Colagem "entre colchetes": o CLI recebe o bloco inteiro e reconhece caminhos de imagem.
-          ptys.write(id, ptys.acceptsPaste(id) ? `\x1b[200~${step.paste}\x1b[201~` : step.paste.replace(/\s*\n+\s*/g, " "));
-          await pause(450);
-        }
+        const steps = composeSteps(agentOf(spec.command ?? "", spec.provider), text, paths);
+        deliveries.push((async () => {
+          for (const step of steps) {
+            if ("submit" in step) { await pause(600); ptys.write(id, "\r"); continue; }
+            // Colagem "entre colchetes": o CLI recebe o bloco inteiro e reconhece caminhos de imagem.
+            ptys.write(id, ptys.acceptsPaste(id) ? `\x1b[200~${step.paste}\x1b[201~` : step.paste.replace(/\s*\n+\s*/g, " "));
+            await pause(450);
+          }
+        })().catch(() => {}));
       } catch (error) { errors.push(`${title}: ${(error as Error).message}`); }
     }));
     // Respondeu pela caixa: o aviso de "esperando você" desse terminal some.
