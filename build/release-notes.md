@@ -1,4 +1,5 @@
 Novidades:
 
-- **Painel de terminais:** à esquerda do canvas, só os terminais, com o ícone do agente e a função de cada um. Mostra quem pede atenção (ponto vermelho), quem está trabalhando e o Sol. Um clique vai até o terminal; na visão resumida, abre ele.
-- **Barras que recolhem:** a barra de baixo, as ferramentas de desenho, a barra da galáxia e o painel de terminais têm um botão para recolher e viram uma aba pequena. O Zênite lembra a escolha.
+- **Caixa de mensagem mais ágil:** no Ctrl+K, o Enter fecha a caixa na hora; antes ela esperava cerca de 1 s pela entrega ao terminal.
+- **Ligações acendem nos fluxos:** ao rodar um fluxo (Ignição → Código → Sol), cada ligação mostra o pulso de envio e o passo seguinte espera ele atravessar a linha.
+- **Visão espacial 3D:** o canvas pode ser visto como um sistema solar interativo, com câmera, zoom e pausa.
