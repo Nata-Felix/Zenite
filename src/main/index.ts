@@ -53,7 +53,7 @@ import { ZeniteBrowser } from "./zeniteBrowser";
 import { killTrees, killZeniteCodex, killZeniteCodexOf } from "./terminalCleanup";
 import { missingFrom, readPathNow, refreshPath } from "./freshPath";
 import { programOf, withPermissions, withSolAccess } from "./fullAccess";
-import { agentOf, looksBusy, parseMenu, pick } from "./agentControl";
+import { agentOf, listCommands, looksBusy, parseMenu, pick } from "./agentControl";
 import { canGrantSolAccess, flowPermission, grantCodexSolAccess, scriptPermission, solWelcomeMessage } from "./solAccess";
 import { FlowWaits } from "./flowWaits";
 import { SunAuthority } from "./sunAuthority";
@@ -777,6 +777,22 @@ app.whenReady().then(async () => {
     if (!file) return { status: "waiting", items: [], working: false, choices };
     const { items, working } = transcripts.read(id, agent, file);
     return { status: "ok", items: withOptions(items), working, choices };
+  });
+  // Comandos "/" de verdade do CLI (lidos da lista que ele mostra), uma vez por sessão do terminal.
+  const chatCommands = new Map<string, { started: number; list: { name: string; description: string }[] }>();
+  ipcMain.handle("chat:commands", async (e, id: string) => {
+    requireMainUI(e);
+    const started = ptys.startedAt(id);
+    if (!started) return [];
+    const cached = chatCommands.get(id);
+    if (cached?.started === started) return cached.list;
+    const term = { write: (d: string) => ptys.write(id, d), snapshot: (n?: number) => ptys.snapshot(id, n ?? 80), quiet: () => ptys.quiet(id) };
+    const screen = (await ptys.snapshot(id, 40)) ?? "";
+    // Só com o agente parado e sem menu: digitar "/" no meio de uma resposta atrapalharia.
+    if (looksBusy(screen) || parseMenu(screen)) return [];
+    const list = await listCommands(term).catch(() => []);
+    if (list.length) chatCommands.set(id, { started, list });
+    return list;
   });
   // Miniatura de uma imagem enviada na conversa (reduzida aqui para não levar o original à tela).
   const chatThumbs = new Map<string, string>();

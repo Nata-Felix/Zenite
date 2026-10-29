@@ -895,6 +895,8 @@ export interface OApi {
     read(id: string): Promise<ChatSnapshot>;
     /** Miniatura (data URL) de uma imagem da conversa; null se não der para abrir. */
     image(id: string, ref: string): Promise<string | null>;
+    /** Comandos "/" que o CLI mostra (lidos da tela uma vez por sessão; vazio se o agente estiver ocupado). */
+    commands(id: string): Promise<{ name: string; description: string }[]>;
   };
   attention: {
     get(): Promise<Record<string, AttentionInfo>>;

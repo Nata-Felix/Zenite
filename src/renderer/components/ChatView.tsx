@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, ChevronRight, ClipboardPaste, FileText, Paperclip, Plus, X } from "lucide-react";
 import type { ChatItem, ChatSnapshot, ChatTheme } from "../../shared/types";
-import { openLinkFromMarkdown, renderMarkdown } from "../markdown";
+import { openLinkFromMarkdown } from "../markdown";
+import { enhanceChat, renderChatMarkdown } from "../chatMarkdown";
 import type { AgentKind } from "../agents";
 import "./ChatView.css";
 
@@ -124,13 +125,22 @@ async function copyText(text: string, button: HTMLElement) {
 /** Tabela copiada como texto separado por tabulação: cola certinho em planilhas. */
 const tableText = (table: HTMLTableElement) => [...table.rows].map((r) => [...r.cells].map((c) => c.innerText.trim()).join("\t")).join("\n");
 
-function AssistantMessage({ text, who, children }: { text: string; who?: string; children?: React.ReactNode }) {
+function AssistantMessage({ text, who, onError, children }: { text: string; who?: string; onError: (message: string) => void; children?: React.ReactNode }) {
   // Sanitizado pelo DOMPurify em renderMarkdown; as barras de copiar são marcação nossa.
-  const html = useMemo(() => withCopyButtons(renderMarkdown(text)), [text]);
+  const html = useMemo(() => withCopyButtons(renderChatMarkdown(text)), [text]);
+  const body = useRef<HTMLDivElement>(null);
+  // Realce de código, fórmulas, diagramas e caminhos clicáveis, depois que o HTML está na tela.
+  useEffect(() => { if (body.current) void enhanceChat(body.current).catch(() => {}); }, [html]);
   return (
     <div className="chat-agent">
       {who && <span className="chat-who">{who}</span>}
-      <div className="chat-markdown" dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => {
+      <div ref={body} className="chat-markdown" dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => {
+        const path = (e.target as HTMLElement).closest<HTMLElement>(".chat-path")?.dataset.path;
+        if (path) {
+          e.preventDefault();
+          void window.o.elements.openPath(path).then((error) => { if (error) onError(`Não deu para abrir ${path}: ${error}`); });
+          return;
+        }
         const button = (e.target as HTMLElement).closest<HTMLElement>(".chat-copy");
         if (!button) return openLinkFromMarkdown(e);
         const block = button.closest(".chat-block");
@@ -271,10 +281,21 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
   }, [count, lastText, snap?.working, snap?.choices.length]);
 
   const rows = useMemo(() => group(snap?.items ?? []), [snap]);
+  // Comandos do próprio CLI: pedidos na primeira vez que a pessoa digita "/" (com o agente parado).
+  const [cliCommands, setCliCommands] = useState<{ name: string; description: string }[] | null>(null);
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!text.startsWith("/") || asked.current || snap?.working) return;
+    asked.current = true;
+    void window.o.chat.commands(id).then((list) => { if (list.length) setCliCommands(list); else asked.current = false; }).catch(() => { asked.current = false; });
+  }, [text, id, snap?.working]);
   const slash = useMemo(() => {
     if (!/^\/\S*$/.test(text)) return [];
-    return (SLASH[kind] ?? []).filter((c) => c.name.startsWith(text.toLowerCase()));
-  }, [text, kind]);
+    // Os do CLI primeiro; os conhecidos completam (e servem enquanto a lista real não chega).
+    const all = new Map<string, string>();
+    for (const c of [...(cliCommands ?? []), ...(SLASH[kind] ?? [])]) if (!all.has(c.name)) all.set(c.name, c.description);
+    return [...all].map(([name, description]) => ({ name, description })).filter((c) => c.name.startsWith(text.toLowerCase())).slice(0, 40);
+  }, [text, kind, cliCommands]);
 
   const add = (list: Attachment[]) => setFiles((f) => [...f, ...list.filter((a) => !f.some((x) => x.path === a.path))]);
   const saveImage = async (blob: Blob, name: string) => {
@@ -388,10 +409,14 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
             );
           }
           return (
-            <AssistantMessage key={item.id} text={item.text} who={opens ? agentName : undefined}>
+            <AssistantMessage key={item.id} text={item.text} who={opens ? agentName : undefined} onError={setError}>
               {item.options && item === lastAssistant && !snap?.working && (
-                <div className="chat-options">
-                  {item.options.map((o) => <button key={o.key} disabled={sending} onClick={() => void deliver(o.key)}><b>{o.key}</b> {o.label}</button>)}
+                <div className="chat-reply">
+                  <small>Responder com um clique</small>
+                  <div className="chat-options">
+                    {/* Vai a opção inteira ("B. Testar tema"), como na caixa Ctrl+K: o agente não precisa adivinhar. */}
+                    {item.options.map((o) => <button key={o.key} disabled={sending} onClick={() => void deliver(`${o.key}. ${o.label}`)}><b>{o.key}</b> <OptionText text={o.label} /></button>)}
+                  </div>
                 </div>
               )}
             </AssistantMessage>

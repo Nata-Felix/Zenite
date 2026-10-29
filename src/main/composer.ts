@@ -91,10 +91,14 @@ export function lastReply(screen: string): string {
 export function replyOptions(reply: string): { key: string; label: string }[] {
   const lines = reply.split("\n");
   const found: { key: string; label: string }[] = [];
+  // Depois das opções só cabe a pergunta (ou uma instrução curta): com mais texto embaixo, a lista
+  // numerada era conteúdo da resposta, não uma escolha.
+  let after = 0;
   for (let i = lines.length - 1; i >= 0 && found.length < 12; i--) {
     const m = lines[i].match(/^\s*(?:[-*]\s*)?(\d{1,2}|[a-e])[.)]\s+(.+)$/i);
     if (m) found.unshift({ key: m[1], label: m[2].replace(/\*\*/g, "").trim() });
     else if (found.length && lines[i].trim() && !/^\s{2,}\S/.test(lines[i])) break; // fim do bloco de opções
+    else if (!found.length && lines[i].trim() && ++after > 3) return [];
   }
   return found.length >= 2 && /\?/.test(reply) ? found : [];
 }

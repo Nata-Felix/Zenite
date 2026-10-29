@@ -120,19 +120,31 @@ Apareceu um caso novo no teste: o cancelamento gravado pelo Claude ("[Request in
   do chat ficou selecionado (azul). **Confirmar** com mouse de verdade: no teste o clique foi
   sintético.
 
-## Baixa: formatos ainda não suportados
+## Baixa: formatos ainda não suportados — corrigidos
 
-| # | Formato | Como aparece hoje | Sugestão |
-|---|---|---|---|
-| 14 | Nota de rodapé `[^1]` | texto cru `[^1]` e `[^1]: …` | extensão de rodapé no `renderMarkdown` |
-| 15 | Fórmula `$E = mc^2$` | texto cru com `$` | KaTeX, ou mostrar como código |
-| 16 | Bloco ```` ```mermaid ```` | só o código | desenhar o diagrama (mermaid) ou botão "ver diagrama" |
-| 17 | Imagem externa `![logo](https://…)` | ícone de imagem quebrada + "logo" | mostrar como link "logo (example.com)" |
-| 18 | Blocos de código | sem realce; diff sem cor nas linhas `+` e `-` | realce de sintaxe; no mínimo verde/vermelho no diff |
-| 19 | Caminho `C:\…\arquivo.ts:42` | texto comum | link que abre o arquivo na linha |
-| 20 | Opções numeradas | aparecem na resposta **e** como botões logo abaixo | decidir se os botões substituem a lista |
-| 21 | Opção A/B/C clicada | envia só "A" | enviar "A) rótulo", como a caixa Ctrl+K |
-| 22 | Lista de `/` | fixa; o Antigravity tem só 3 comandos | ler a lista real do CLI (`parseSlashList`) |
+Todos conferidos ao vivo numa resposta do Claude com todos os formatos juntos.
+
+| # | Formato | Como ficou |
+|---|---|---|
+| 14 | Nota de rodapé `[^1]` | número sobrescrito no texto e lista numerada no fim |
+| 15 | Fórmula `$…$` e `$$…$$` | desenhada pelo KaTeX; "R$ 10" continua texto |
+| 16 | Bloco ```mermaid | diagrama desenhado (mermaid em modo strict); o botão de copiar copia o código |
+| 17 | Imagem externa | link "Ver imagem: logo (example.com)" que abre no navegador |
+| 18 | Blocos de código | realce de sintaxe (highlight.js); diff com linhas verdes e vermelhas |
+| 19 | Caminho `C:…arquivo.ts:42` | link que abre o arquivo (pede confirmação se for programa) |
+| 20 | Opções numeradas | os botões ganham o título "Responder com um clique" |
+| 21 | Opção clicada | envia a opção inteira ("B. Simplificar os blocos") |
+| 22 | Lista de `/` | lê a lista real do CLI na primeira vez que se digita "/" (com o agente parado), junto com a fixa |
+
+As bibliotecas novas são katex 0.19.0, mermaid 12.2.0 e highlight.js 11.12.0, com versões fixas.
+Cada uma é carregada só quando a resposta precisa dela; o pacote principal da interface quase não
+mudou.
+
+Apareceram dois casos no teste, também corrigidos:
+- **Opções de mentira:** uma lista numerada comum virava botões só porque a resposta terminava com
+  uma pergunta. Agora, depois das opções, só podem vir até 3 linhas (a pergunta ou uma instrução).
+- **"/" esquecido no terminal:** ao ler a lista de "/" do Claude, sobrava um "/" no campo do
+  terminal. O `listCommands` não reconhecia o prompt "❯".
 
 ## O que funcionou
 

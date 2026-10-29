@@ -227,8 +227,8 @@ export async function listCommands(t: AgentTerm): Promise<{ name: string; descri
   }
   t.write(ESC);
   await settle(t, { min: 200, quiet: 300, max: 2000 });
-  // O Codex fecha a lista mas deixa o "/" escrito.
-  if (/^\s*[›>]\s*\/\s*$/m.test(await screen(t, 30))) t.write("\x7f");
+  // O Codex e o Claude Code (prompt ❯) fecham a lista mas deixam o "/" escrito.
+  if (/^\s*[│┃]?\s*[›>❯]\s*\/\s*([│┃]\s*)?$/m.test(await screen(t, 30))) t.write("\x7f");
   return [...seen].map(([name, description]) => ({ name, description }));
 }
 

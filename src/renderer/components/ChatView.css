@@ -356,6 +356,8 @@
   cursor: pointer;
 }
 .chat-menu button:hover, .chat-menu button[aria-selected="true"], .chat-menu button[aria-checked="true"] { background: var(--chat-accent-soft); }
+.chat-menu.slash { max-height: 280px; overflow-y: auto; min-width: 280px; max-width: calc(100% - 28px); }
+.chat-menu.slash span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chat-menu.slash code { color: var(--chat-accent); min-width: 84px; }
 .chat-menu.slash span { color: var(--chat-muted); }
 
@@ -395,3 +397,38 @@
 .chat-orb { flex-shrink: 0; display: block; }
 /* O terminal continua vivo por baixo do chat (o processo e a tela não podem parar). */
 .terminal-screen.behind-chat .screen-frame { visibility: hidden; }
+
+/* Realce de código (highlight.js, carregado sob demanda): cores próprias, que valem nos três temas. */
+.chat-markdown .hljs-comment, .chat-markdown .hljs-quote { color: #7d8794; font-style: italic; }
+.chat-markdown .hljs-keyword, .chat-markdown .hljs-selector-tag, .chat-markdown .hljs-literal, .chat-markdown .hljs-type { color: #c792ea; }
+.chat-markdown .hljs-string, .chat-markdown .hljs-regexp, .chat-markdown .hljs-template-string { color: #a5d6a7; }
+.chat-markdown .hljs-number, .chat-markdown .hljs-symbol, .chat-markdown .hljs-bullet { color: #f7b36b; }
+.chat-markdown .hljs-title, .chat-markdown .hljs-title.function_, .chat-markdown .hljs-section { color: #82aaff; }
+.chat-markdown .hljs-attr, .chat-markdown .hljs-attribute, .chat-markdown .hljs-variable, .chat-markdown .hljs-property { color: #f0c674; }
+.chat-markdown .hljs-built_in, .chat-markdown .hljs-name, .chat-markdown .hljs-tag { color: #89ddff; }
+.chat-markdown .hljs-meta { color: #9aa5b1; }
+/* Diff: linha inteira em verde/vermelho. */
+.chat-markdown .hljs-addition { color: #9be39f; background: rgba(76, 175, 80, 0.14); display: inline-block; width: 100%; }
+.chat-markdown .hljs-deletion { color: #ff9e9e; background: rgba(244, 67, 54, 0.14); display: inline-block; width: 100%; }
+
+/* Fórmulas (KaTeX): antes de carregar, o texto da fórmula em fonte de código. */
+.chat-math:not([data-done]) { font-family: var(--mono, ui-monospace, Consolas, monospace); font-size: 12.5px; }
+.chat-math.block { display: block; margin: 6px 0 10px; overflow-x: auto; text-align: center; }
+.chat-markdown .katex { font-size: 1.08em; color: var(--chat-text); }
+
+/* Notas de rodapé. */
+.chat-fn { color: var(--chat-accent); font-size: 0.75em; margin-left: 1px; }
+.chat-footnotes { margin: 12px 0 0; padding: 8px 0 0 22px; border-top: 1px solid var(--chat-line); font-size: 12.5px; color: var(--chat-muted); }
+
+/* Imagem da internet vira link; caminho de arquivo abre o arquivo. */
+.chat-image-link { color: var(--chat-accent); }
+.chat-path { color: var(--chat-text); text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.chat-path:hover { color: var(--chat-accent); }
+
+/* Diagrama mermaid desenhado. */
+.chat-diagram { padding: 12px; overflow-x: auto; text-align: center; }
+.chat-diagram svg { max-width: 100%; height: auto; }
+
+/* Opções da resposta como botões. */
+.chat-reply { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.chat-reply > small { color: var(--chat-muted); font-size: 11.5px; }

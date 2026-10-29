@@ -96,3 +96,23 @@ test("lista numerada sem pergunta não vira botões", async () => {
   const { replyOptions } = await import(pathToFileURL(outfile).href);
   assert.deepEqual(replyOptions("Fiz assim:\n1. criei a home\n2. testei"), []);
 });
+
+test("lista numerada no meio da resposta, com mais conteúdo depois, não vira botões", async () => {
+  const { replyOptions } = await import(pathToFileURL(outfile).href);
+  const reply = [
+    "Confirmo as diretrizes:",
+    "1. Orquestração pura: planejar e delegar.",
+    "2. Canvas primeiro: consultar elementos ligados.",
+    "3. Não execução direta.",
+    "",
+    "### Diagnóstico inicial",
+    "- Sol: Antigravity",
+    "- Ligados: Codex",
+    "  - Claude Code (ligado ao Codex)",
+    "",
+    "Pronto para receber o próximo objetivo. O que vamos coordenar?",
+  ].join("\n");
+  assert.deepEqual(replyOptions(reply), []);
+  // Opções seguidas da pergunta e de uma instrução curta continuam valendo.
+  assert.deepEqual(replyOptions("Opções:\nA) Manter\nB) Simplificar\n\nQual você prefere?\nResponda com a letra.").map((o) => o.key), ["A", "B"]);
+});
