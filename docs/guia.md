@@ -273,6 +273,20 @@ Sol cria precisam ficar dentro da pasta da galáxia ou de um universo dela. Fora
 pergunta (Permitir/Recusar); com **Lembrar**, a outra galáxia fica liberada para o Sol desta, e a
 liberação aparece em **Editar galáxia**, onde dá para revogar.
 
+### Torre do Sol: quem faz o quê
+
+Uma **Torre de controle** no modo **Classificar e executar** é o roteiro do Sol. Cada rota tem um
+nome, quando vale ("só ler e resumir") e quem executa (agente, conta, modelo, esforço e, se a conta
+estiver sem limite, um agente alternativo). Os termos da rota decidem primeiro; se nenhum bater, a IA
+da Torre escolhe pelo critério. Rota sem executor segue pela saída para o que estiver ligado (por
+exemplo, o terminal "Builder").
+
+Ligada ao Sol, a Torre aparece no `zn list` dele com as rotas, e ele delega com
+`zn flow run "Torre" "tarefa"`; se a rota não continua no canvas, a resposta volta para o Sol.
+Terminal que executa uma rota só é alcançado pela Torre. Terminal ligado direto ao Sol e fora das
+rotas continua com `zn ask`. Marque **Torre exclusiva do Sol** para fechar também esses: o Sol não
+usa `zn ask` direto nem recruta.
+
 Limite honesto: um agente com acesso ao terminal consegue ler arquivos do disco por conta
 própria. A regra é garantida para tudo que passa pelo `zn`, e a skill instrui o agente a
 respeitá-la, mas não é um cofre contra um agente tentando burlá-la.

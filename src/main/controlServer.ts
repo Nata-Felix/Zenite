@@ -51,6 +51,18 @@ export interface Item extends Peer {
   url?: string;
   /** Arquivo/pasta: caminho no disco. Nunca é mostrado para quem não está ligado. */
   path?: string;
+  /** Torre de controle: o roteiro dela em palavras. */
+  tower?: TowerMenu;
+  /** Executor de rota de Torre: só é alcançado por ela (o Sol delega pela Torre). */
+  viaTower?: { tower: string; route: string }[];
+}
+
+export interface TowerMenu {
+  /** Modo "Classificar e executar". */
+  executes: boolean;
+  /** Ligada ao Sol, ele só delega por ela. */
+  exclusive: boolean;
+  routes: { label: string; criteria?: string; executor: string }[];
 }
 
 /**
@@ -107,7 +119,8 @@ export interface ElementOps {
   /** O "F12" do site (console, rede, código), se ele estiver aberto na tela. */
   webInspect?(id: string): WebInspector | null;
   /** Começa o fluxo a partir deste astro, com o texto em {{entrada}} (não espera terminar). */
-  runFlow(id: string, input: string): { ok: boolean; error?: string };
+  /** callerId: quem pediu (zn flow run) e recebe a resposta de uma Torre que executa. */
+  runFlow(id: string, input: string, callerId?: string): { ok: boolean; error?: string };
   /** Sol: canvas onde o terminal está e o lote de mudanças nele (vazio = só ler). */
   canvasOf?(id: string): string | null;
   canvasOps?(canvasId: string, ops: CanvasOp[], callerId: string): Promise<CanvasOpsReply>;
@@ -387,7 +400,7 @@ export class ControlServer {
           }
           if (body.action === "status") return send(res, 200, await this.flowStatus(hood, astro));
           const input = typeof body.input === "string" ? body.input : "";
-          const r = this.elements.runFlow(astro.id, input);
+          const r = this.elements.runFlow(astro.id, input, hood.me.id);
           if (!r.ok) throw new HttpError(409, r.error ?? "Não deu para começar o fluxo.");
           this.flow(hood.me.id, astro.id);
           return send(res, 200, { status: "iniciado", flow: astro.title });
@@ -447,13 +460,31 @@ export class ControlServer {
         ...(p.file ? { path: this.elements.mediaPath(p.file) } : {}),
         ...(p.path ? { path: p.path } : {}),
         ...(p.url ? { url: p.url } : {}),
+        ...(p.tower ? { tower: p.tower } : {}),
+        ...(p.viaTower?.length ? { viaTower: p.viaTower } : {}),
       })),
+      ...(this.exclusiveTower(hood) ? { exclusiveTower: this.exclusiveTower(hood)!.title } : {}),
       pendingForMe: [...this.pending.values()].filter((a) => a.to.id === hood.me.id).map((a) => ({ id: a.id, from: a.from.title })),
     };
   }
 
+  /** Torre exclusiva ligada ao Sol: com ela, toda delegação do Sol passa por ela. */
+  private exclusiveTower(hood: Neighborhood): Item | undefined {
+    return hood.me.sun ? hood.linked.find((p) => p.tower?.exclusive) : undefined;
+  }
+
+  /** O Sol delega pela Torre: executor de rota e Torre exclusiva recusam o caminho direto. */
+  private requireTowerRoute(hood: Neighborhood, target?: Item): void {
+    if (!hood.me.sun) return;
+    const exclusive = this.exclusiveTower(hood);
+    if (exclusive) throw new HttpError(403, `A Torre "${exclusive.title}" é exclusiva: delegue por ela com zn flow run ${JSON.stringify(exclusive.title)} "tarefa" (a resposta chega aqui).`);
+    const via = target?.viaTower?.[0];
+    if (via) throw new HttpError(403, `"${target!.title}" executa a rota "${via.route}" da Torre "${via.tower}". Delegue por: zn flow run ${JSON.stringify(via.tower)} "tarefa".`);
+  }
+
   private async ask(hood: Neighborhood, body: Record<string, unknown>, req: IncomingMessage): Promise<object> {
     const target = this.resolve(hood, body.to, ["terminal"]);
+    this.requireTowerRoute(hood, target);
     const message = requireText(body.message, "mensagem");
     const wait = body.wait !== false;
     // Quem esgotou o limite não vai responder: recusa já, dizendo quem tem folga (--force manda mesmo assim).
@@ -533,6 +564,7 @@ export class ControlServer {
   private sendRaw(hood: Neighborhood, body: Record<string, unknown>) {
     const target = this.resolve(hood, body.to, ["terminal"]);
     if (target.sun && !hood.me.sun) throw new HttpError(403, "Outro agente não pode enviar teclas ao Sol. Use zn ask para enviar um pedido.");
+    this.requireTowerRoute(hood, target);
     const data = requireText(body.data, "texto", true);
     if (!this.ptys.has(target.id)) throw new HttpError(409, `"${target.title}" está encerrado.`);
     this.ptys.write(target.id, data);
@@ -628,6 +660,10 @@ export class ControlServer {
         throw new HttpError(400, raw.length > 1 ? `Operação ${i + 1}: ${(err as Error).message}` : (err as Error).message);
       }
     });
+    if (ops.some((op) => op.op === "create" && op.kind === "terminal")) {
+      const exclusive = this.exclusiveTower(hood);
+      if (exclusive) throw new HttpError(403, `A Torre "${exclusive.title}" é exclusiva: o Sol não recruta. Delegue por zn flow run ${JSON.stringify(exclusive.title)} "tarefa"; se nenhuma rota serve, pergunte ao usuário.`);
+    }
     // Recrutar só quando ninguém do canvas serve: um terminal livre do mesmo agente é reaproveitado.
     if (!(typeof body.universe === "string" && body.universe.trim()) && body.new !== true) {
       await this.requireNoIdleTerminal(canvasId, hood, ops);

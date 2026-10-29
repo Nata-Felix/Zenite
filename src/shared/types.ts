@@ -70,7 +70,8 @@ export type IntegrationReply = { ok: true; data: unknown } | { ok: false; error:
  *  - satellite (Satélite): agente fixo, CLI sem tela com conta, modelo e prompt já escolhidos.
  *  - orbit (Órbita): loop; volta a um passo anterior até a condição bater ou acabar as voltas.
  *  - gemini (Gêmeos): se/senão; segue pelo caminho A ou B.
- *  - tower (Torre de controle): roteador; manda para um de vários caminhos, por regra ou pela IA.
+ *  - tower (Torre de controle): roteador; manda para um de vários caminhos, por regra ou pela IA,
+ *    e no modo "Classificar e executar" também roda o agente escolhido para a rota.
  *  - gravity (Gravidade): balanceador; reparte entre os caminhos ligados (revezando ou por folga).
  *  - thruster (Propulsor): roda um script do PowerShell; a saída vira a nova {{entrada}}.
  *  - convergence (Convergência): reúne entradas de caminhos paralelos.
@@ -133,6 +134,22 @@ export interface FlowRoute {
   label: string;
   /** Modo regra: palavras separadas por vírgula; a primeira rota com alguma delas no texto ganha. */
   match?: string;
+  /** Quando esta rota vale, em palavras: a IA classifica por isto (e o Sol lê no zn list). */
+  criteria?: string;
+  /** Modo "Classificar e executar": quem faz o trabalho desta rota (sem agente = segue pela saída). */
+  run?: FlowRouteRun;
+}
+
+export interface FlowRouteRun {
+  agent?: AccountAgent;
+  account?: string;
+  model?: string;
+  effort?: string;
+  permission?: "read" | "sandbox" | "full";
+  /** Pedido ao executor, com {{entrada}} (vazio = a própria entrada). */
+  prompt?: string;
+  /** Usado quando a conta do executor está sem limite. */
+  fallback?: { agent?: AccountAgent; account?: string; model?: string; effort?: string };
 }
 
 export interface FlowSpec {
@@ -168,7 +185,10 @@ export interface FlowSpec {
   condition?: FlowCondition;
   /** Torre: rotas e quem decide. */
   routes?: FlowRoute[];
-  decide?: "rules" | "agent";
+  /** rules = termos; agent = IA escolhe a rota; execute = termos, senão IA, e o executor da rota faz o trabalho. */
+  decide?: "rules" | "agent" | "execute";
+  /** Torre do Sol: com esta marcada, o Sol só delega por ela (sem zn ask direto nem recrutar). */
+  exclusive?: boolean;
   /** Gravidade: revezar ou mandar para quem tem mais folga de limite. */
   strategy?: "rotate" | "quota";
   /** Propulsor: script do PowerShell, com {{campo}}. */

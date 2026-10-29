@@ -511,7 +511,7 @@ app.whenReady().then(async () => {
   };
 
   // zn flow run: o motor dos astros é montado mais abaixo (startFlow); até lá, recusa.
-  let flowFromZn: (id: string, input: string) => { ok: boolean; error?: string } = () => ({ ok: false, error: "O Zênite ainda está abrindo." });
+  let flowFromZn: (id: string, input: string, callerId?: string) => { ok: boolean; error?: string } = () => ({ ok: false, error: "O Zênite ainda está abrindo." });
   let flowStop: (id: string) => boolean = () => false;
   const flowWaits = new FlowWaits();
   let flowStatus: () => { running: string[]; statuses: Record<string, FlowStatus> } = () => ({ running: [], statuses: {} });
@@ -559,7 +559,7 @@ app.whenReady().then(async () => {
     writeTable: (id, rows, fromAgent) => elements.writeTable(id, rows, fromAgent),
     web: webFor,
     webInspect,
-    runFlow: (id, input) => flowFromZn(id, input),
+    runFlow: (id, input, callerId) => flowFromZn(id, input, callerId),
     canvasOf: (id) => elements.canvasOf(id),
     canvasOps: (canvasId, ops, callerId) => elements.canvasOps(canvasId, ops, callerId),
     accounts: () => store.list().accounts ?? [],
@@ -1443,7 +1443,7 @@ app.whenReady().then(async () => {
     return true;
   };
   flowStatus = () => ({ running: [...runningFlows], statuses: Object.fromEntries(lastFlowStatus) });
-  const startFlow = async (canvasId: string, state: CanvasState, startId: string, input?: string): Promise<{ ok: boolean; error?: string }> => {
+  const startFlow = async (canvasId: string, state: CanvasState, startId: string, input?: string, replyTo?: string): Promise<{ ok: boolean; error?: string }> => {
     if (runningFlows.has(startId)) return { ok: false, error: "Este fluxo já está rodando." };
     runningFlows.add(startId);
     const controller = new AbortController();
@@ -1489,6 +1489,7 @@ app.whenReady().then(async () => {
           win?.webContents.send("flow:status", s);
         },
         stopped: () => stopFlows.has(startId),
+        replyTo,
         link: (from, to) => win?.webContents.send("canvas:flow", from, to),
         hasQuota: (spec) => !codexReached(spec),
         deliver: async (terminalId, text) => {
@@ -1551,12 +1552,12 @@ app.whenReady().then(async () => {
       stopFlows.delete(startId);
     }
   };
-  flowFromZn = (id, input) => {
+  flowFromZn = (id, input, callerId) => {
     const place = store.places().find((p) => store.loadCanvas(p.canvasId)?.nodes.some((n) => n.id === id));
     const state = place && store.loadCanvas(place.canvasId);
     if (!place || !state) return { ok: false, error: "Astro não encontrado." };
     if (runningFlows.has(id)) return { ok: false, error: "Este fluxo já está rodando." };
-    void startFlow(place.canvasId, state, id, input);
+    void startFlow(place.canvasId, state, id, input, callerId);
     return { ok: true };
   };
   ipcMain.handle("flows:run", (_e, canvasId: string, state: CanvasState, startId: string) => {

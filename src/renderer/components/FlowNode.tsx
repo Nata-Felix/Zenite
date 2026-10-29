@@ -2,7 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Code2, Flame, Loader2, Orbit, Play, Plus, RadioTower, Rocket, Satellite, Scale, Settings2, Split, Trash2, TriangleAlert, X, Merge, Timer, ShieldCheck } from "lucide-react";
 import { Handle, Position, useUpdateNodeInternals, type NodeProps } from "@xyflow/react";
-import type { AccountAgent, FlowAgentOptions, FlowCondition, FlowSpec, FlowStatus, FlowType } from "../../shared/types";
+import type { AccountAgent, FlowAgentOptions, FlowCondition, FlowRoute, FlowRouteRun, FlowSpec, FlowStatus, FlowType } from "../../shared/types";
 import type { CanvasFlowNode } from "../nodes";
 import { EditableTitle } from "./EditableTitle";
 import { newFlowSpec, outputsOf } from "../../shared/flows";
@@ -101,7 +101,7 @@ export function flowSummary(spec: FlowSpec): string {
     case "gemini":
       return `A se ${conditionText(spec.condition ?? { op: "filled" })}`;
     case "tower":
-      return spec.decide === "agent" ? "Classificação por agente" : "Correspondência textual";
+      return spec.decide === "execute" ? `Classifica e executa · ${(spec.routes ?? []).filter((r) => r.run?.agent).length} executor(es)${spec.exclusive ? " · exclusiva do Sol" : ""}` : spec.decide === "agent" ? "Classificação por agente" : "Correspondência textual";
     case "gravity":
       return spec.strategy === "quota" ? "Disponibilidade de cota" : "Alternância entre rotas";
     case "thruster":
@@ -129,7 +129,7 @@ function ConditionFields({ value, onChange }: { value?: FlowCondition; onChange(
 }
 
 /** Conta, modelo, esforço e permissão de quem roda um CLI sem tela (Satélite e Torre com IA). */
-function AgentFields({ draft, set }: { draft: FlowSpec; set(p: Partial<FlowSpec>): void }) {
+function AgentFields({ draft, set, noPermission }: { draft: FlowSpec; set(p: Partial<FlowSpec>): void; noPermission?: boolean }) {
   const [opts, setOpts] = useState<FlowAgentOptions | null>(null);
   useEffect(() => void window.o.flows.options().then(setOpts), []);
   const agent = draft.agent ?? "codex";
@@ -167,14 +167,41 @@ function AgentFields({ draft, set }: { draft: FlowSpec; set(p: Partial<FlowSpec>
           </select>
         </label>
       </div>
-      <label>Permissão
+      {!noPermission && <label>Permissão
         <select value={draft.permission ?? "sandbox"} onChange={(e) => set({ permission: e.target.value as FlowSpec["permission"] })}>
           <option value="read">Somente leitura</option>
           <option value="sandbox">Sandbox (restrito à pasta da galáxia)</option>
           <option value="full">Acesso total</option>
         </select>
-      </label>
+      </label>}
     </>
+  );
+}
+
+/** Uma rota do modo "Classificar e executar": quando vale e quem faz o trabalho. */
+function TowerRoute({ route, index, onChange, onRemove }: { route: FlowRoute; index: number; onChange(r: FlowRoute): void; onRemove(): void }) {
+  const run = route.run ?? {};
+  const setRun = (patch: Partial<FlowRouteRun>) => onChange({ ...route, run: { ...run, ...patch } });
+  const fallback = run.fallback;
+  return (
+    <fieldset className="radio-group">
+      <legend>{route.label || `Caminho ${index + 1}`}</legend>
+      <div className="flow-row route">
+        <label>Rota<input value={route.label} placeholder={`Caminho ${index + 1}`} onChange={(e) => onChange({ ...route, label: e.target.value })} /></label>
+        <label>Termos (opcional)<input value={route.match ?? ""} placeholder="pesquise, compare" onChange={(e) => onChange({ ...route, match: e.target.value })} /></label>
+        <button type="button" className="icon-button" title="Remover rota" onClick={onRemove}><Trash2 size={14} /></button>
+      </div>
+      <label>Quando vale<input value={route.criteria ?? ""} placeholder="só ler e resumir, sem mexer em código" onChange={(e) => onChange({ ...route, criteria: e.target.value })} /></label>
+      <label className="toggle"><input type="checkbox" checked={!!run.agent} onChange={(e) => onChange({ ...route, run: e.target.checked ? { agent: "codex", permission: "sandbox" } : undefined })} /><span>A Torre executa esta rota (desmarcado: segue pela saída para o que estiver ligado)</span></label>
+      {run.agent && (
+        <>
+          <AgentFields draft={{ type: "satellite", ...run }} set={(p) => setRun(p as Partial<FlowRouteRun>)} />
+          <label>Pedido ao executor (opcional)<textarea rows={2} value={run.prompt ?? ""} placeholder="Pesquise e devolva em tópicos: {{entrada}}" onChange={(e) => setRun({ prompt: e.target.value })} /></label>
+          <label className="toggle"><input type="checkbox" checked={!!fallback} onChange={(e) => setRun({ fallback: e.target.checked ? { agent: "claude" } : undefined })} /><span>Se a conta estiver sem limite, usar outro agente</span></label>
+          {fallback && <AgentFields noPermission draft={{ type: "satellite", ...fallback }} set={(p) => setRun({ fallback: { ...fallback, ...(p as FlowRouteRun["fallback"]) } })} />}
+        </>
+      )}
+    </fieldset>
   );
 }
 
@@ -282,19 +309,27 @@ function FlowConfig({ nodeId, spec, title, onSave, onClose }: { nodeId: string; 
               <select value={draft.decide ?? "rules"} onChange={(e) => set({ decide: e.target.value as FlowSpec["decide"] })}>
                 <option value="rules">Correspondência textual</option>
                 <option value="agent">Classificação por agente</option>
+                <option value="execute">Classificar e executar</option>
               </select>
             </label>
-            {routes.map((r, i) => (
+            {routes.map((r, i) => draft.decide === "execute" ? (
+              <TowerRoute key={r.id} route={r} index={i} onChange={(route) => set({ routes: routes.map((x) => (x.id === r.id ? route : x)) })} onRemove={() => set({ routes: routes.filter((x) => x.id !== r.id) })} />
+            ) : (
               <div className="flow-row route" key={r.id}>
                 <label>Rota<input value={r.label} placeholder={`Caminho ${i + 1}`} onChange={(e) => set({ routes: routes.map((x) => (x.id === r.id ? { ...x, label: e.target.value } : x)) })} /></label>
                 {(draft.decide ?? "rules") === "rules" && <label>Termos de correspondência<input value={r.match ?? ""} placeholder="erro, falha" onChange={(e) => set({ routes: routes.map((x) => (x.id === r.id ? { ...x, match: e.target.value } : x)) })} /></label>}
+                {draft.decide === "agent" && <label>Quando vale<input value={r.criteria ?? ""} placeholder="reclamações e erros" onChange={(e) => set({ routes: routes.map((x) => (x.id === r.id ? { ...x, criteria: e.target.value } : x)) })} /></label>}
                 <button type="button" className="icon-button" title="Remover rota" onClick={() => set({ routes: routes.filter((x) => x.id !== r.id) })}><Trash2 size={14} /></button>
               </div>
             ))}
             <button type="button" className="ghost small" onClick={() => set({ routes: [...routes, { id: `r${Date.now().toString(36)}`, label: "", match: "" }] })}><Plus size={13} /> Adicionar rota</button>
-            <p className="dialog-hint">{(draft.decide ?? "rules") === "rules" ? "Separe os termos por vírgulas. A primeira rota com correspondência será selecionada." : "A IA recebe o texto e os nomes das rotas e responde com um deles."} Na ausência de correspondência, utiliza a saída <b>Outros</b>.</p>
-            {draft.decide === "agent" && (
+            <p className="dialog-hint">{(draft.decide ?? "rules") === "rules" ? "Separe os termos por vírgulas. A primeira rota com correspondência será selecionada." : draft.decide === "execute" ? "Os termos decidem primeiro; se nenhum bater, a IA abaixo escolhe pelo critério de cada rota. O executor da rota faz o trabalho e a resposta sai pela saída dela. Se a saída não estiver ligada a nada, a resposta volta para quem pediu (zn flow run)." : "A IA recebe o texto, os nomes das rotas e o critério de cada uma, e responde com um deles."} Na ausência de correspondência, utiliza a saída <b>Outros</b>.</p>
+            {draft.decide === "execute" && (
+              <label className="toggle"><input type="checkbox" checked={!!draft.exclusive} onChange={(e) => set({ exclusive: e.target.checked })} /><span><strong>Torre exclusiva do Sol</strong> — ligada ao Sol, ele só delega por ela: sem zn ask direto e sem recrutar.</span></label>
+            )}
+            {(draft.decide === "agent" || draft.decide === "execute") && (
               <>
+                {draft.decide === "execute" && <p className="dialog-hint"><b>Quem classifica</b> (usado só quando os termos não decidem):</p>}
                 <AgentFields draft={draft} set={set} />
                 <label>Instrução extra (opcional)<textarea rows={3} value={draft.prompt ?? ""} placeholder="Direcione reclamações para a rota Suporte." onChange={(e) => set({ prompt: e.target.value })} /></label>
               </>

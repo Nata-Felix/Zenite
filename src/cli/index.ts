@@ -574,10 +574,16 @@ async function main(argv: string[]): Promise<number> {
       }
       if (r.linked.length === 0) lines.push("Nada ligado a você. Peça ao usuário para ligar elementos a este terminal no canvas.");
       else {
+        // Torres primeiro: o roteiro diz por onde delegar antes da lista do que está ligado.
+        for (const t of r.linked.filter((p: { tower?: unknown }) => p.tower)) {
+          lines.push(`Torre "${t.title}"${t.tower.exclusive ? " (exclusiva: toda delegação passa por ela)" : ""} — delegue por: zn flow run ${JSON.stringify(t.title)} "tarefa"${t.tower.executes ? " (a resposta chega aqui)" : ""}`);
+          for (const route of t.tower.routes) lines.push(`  • ${route.label}${route.criteria ? ` — ${route.criteria}` : ""} → ${route.executor}`);
+        }
         lines.push("Ligados a você (pode usar):");
         for (const p of r.linked) {
           const extra = [p.status, p.url, p.path].filter(Boolean).join(" · ");
-          lines.push(`  - "${p.title}" [${KIND[p.kind] ?? p.kind}]${p.sun ? " ☀ Sol (orquestrador)" : ""}${extra ? ` (${extra})` : ""}`);
+          const only = p.kind === "terminal" && r.me.sun && (p.viaTower?.length || r.exclusiveTower) ? ` — só pela Torre "${p.viaTower?.[0]?.tower ?? r.exclusiveTower}"` : "";
+          lines.push(`  - "${p.title}" [${KIND[p.kind] ?? p.kind}]${p.sun ? " ☀ Sol (orquestrador)" : ""}${extra ? ` (${extra})` : ""}${only}`);
           if (p.kind === "skill") lines.push(`    Leia quando precisar: zn skill read ${JSON.stringify(p.title)}`);
           if (p.kind === "service") lines.push(`    Usar pelo conector: zn service test ${JSON.stringify(p.title)} (veja zn help)`);
         }

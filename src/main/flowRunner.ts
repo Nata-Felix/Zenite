@@ -1,4 +1,4 @@
-import type { CanvasEdge, CanvasNode, CanvasState, FlowCondition, FlowSpec, FlowStatus } from "../shared/types";
+import type { CanvasEdge, CanvasNode, CanvasState, FlowCondition, FlowRouteRun, FlowSpec, FlowStatus } from "../shared/types";
 import { chronosSeconds, validateChronos } from "../shared/chronos";
 import { fillData, transformData } from "../shared/flowData";
 
@@ -9,6 +9,7 @@ import { fillData, transformData } from "../shared/flowData";
  *  - Propulsor: roda o script; a saída vira a nova {{entrada}}.
  *  - Gêmeos: segue pela saída "a" se a condição bater, senão pela "b".
  *  - Torre: segue pela saída da rota escolhida (por palavra ou pela IA); sem rota, pela "else".
+ *    No modo "execute", roda o executor da rota antes; sem continuação, responde a quem pediu.
  *  - Gravidade: escolhe uma das linhas que saem dele (revezando, ou pela conta com folga).
  *  - Órbita: pela saída "loop" volta a um passo anterior, até a condição bater ou acabarem as
  *    voltas ({{volta}} conta); aí segue pela "done".
@@ -37,6 +38,8 @@ export interface FlowDeps {
   stopped?(): boolean;
   /** O texto está passando de um passo para o outro: a linha entre eles ganha o pulso de envio. */
   link?(from: string, to: string): void;
+  /** Terminal que começou o fluxo (zn flow run): recebe a resposta da Torre que executa. */
+  replyTo?: string;
 }
 
 /** Tempo que o pulso leva para atravessar uma ligação antes do passo seguinte (a animação ativa dura ~1,1 s). */
@@ -77,6 +80,19 @@ export function pickRoute(spec: FlowSpec, text: string): string {
     if (words.some((w) => t.includes(w))) return r.id;
   }
   return "else";
+}
+
+/** Pedido à IA da Torre: os nomes das rotas e, quando houver, o critério de cada uma. */
+export function towerPrompt(spec: FlowSpec, item: FlowItem): string {
+  const routes = (spec.routes ?? []).filter((r) => r.label.trim());
+  const criteria = routes.some((r) => r.criteria?.trim()) ? `\n\nCaminhos:\n${routes.map((r) => `- ${r.label}${r.criteria?.trim() ? `: ${r.criteria.trim()}` : ""}`).join("\n")}\nSe nenhum servir, responda Outros.` : "";
+  return `${spec.prompt?.trim() ? fill(spec.prompt, item) + "\n\n" : ""}Escolha o caminho para o texto abaixo. Responda só com um destes nomes: ${routes.map((r) => r.label).join(", ")}.${criteria}\n\nTexto:\n${item.entrada}`;
+}
+
+/** Executor da rota; sem limite na conta dele, usa a alternativa (se houver). */
+export function routeSpec(run: FlowRouteRun, deps: Pick<FlowDeps, "hasQuota">): FlowSpec {
+  const main: FlowSpec = { type: "satellite", agent: run.agent, account: run.account, model: run.model, effort: run.effort, permission: run.permission };
+  return run.fallback?.agent && !deps.hasQuota(main) ? { ...main, account: undefined, model: undefined, effort: undefined, ...run.fallback } : main;
 }
 
 /** Torre no modo IA: acha o nome de uma rota na resposta do agente. */
@@ -268,17 +284,30 @@ export async function runFlow(canvas: CanvasState, startId: string, deps: FlowDe
           break;
         }
         case "tower": {
-          let route: string;
-          if (spec.decide === "agent") {
+          // Classificar e executar: os termos decidem de graça; a IA só entra quando nenhum bateu.
+          let route = spec.decide === "agent" ? "else" : pickRoute(spec, item.entrada);
+          if (spec.decide === "agent" || (spec.decide === "execute" && route === "else")) {
             report("running");
-            const names = (spec.routes ?? []).map((r) => r.label).filter(Boolean);
-            const prompt = `${spec.prompt?.trim() ? fill(spec.prompt, item) + "\n\n" : ""}Escolha o caminho para o texto abaixo. Responda só com um destes nomes: ${names.join(", ")}.\n\nTexto:\n${item.entrada}`;
-            const r = await deps.runAgent(spec, prompt, node.id);
+            const r = await deps.runAgent(spec, towerPrompt(spec, item), node.id);
             if (!r.ok) throw new Error(r.error);
             route = routeFromAnswer(spec, r.text);
-          } else route = pickRoute(spec, item.entrada);
+          }
+          const chosen = spec.routes?.find((r) => r.id === route);
+          const label = chosen?.label || "Outros";
           take = (e) => handleOf(e) === route;
-          report("ok", route === "else" ? "Outros" : spec.routes?.find((r) => r.id === route)?.label);
+          const runs = spec.decide === "execute" && !!chosen?.run?.agent;
+          if (runs) {
+            report("running", `${label}: executando`);
+            const r = await deps.runAgent(routeSpec(chosen!.run!, deps), fill(chosen!.run!.prompt?.trim() || "{{entrada}}", item), node.id);
+            if (!r.ok) throw new Error(`${label}: ${r.error}`);
+            next = { entrada: r.text, vars: { ...item.vars, resposta: r.text, rota: label } };
+          }
+          // Quem pediu (zn flow run) recebe a resposta quando a rota não continua no canvas.
+          if (spec.decide === "execute" && deps.replyTo && !out(node.id).some(take)) {
+            const text = runs ? next.entrada : route === "else" ? "Nenhuma rota serve para este pedido. Pergunte ao usuário como seguir." : `Rota "${label}" escolhida, mas ela não tem executor nem continuação.`;
+            await deps.deliver(deps.replyTo, `[Torre "${node.element!.title}" · ${label}]\n${text}`).catch(() => {});
+          }
+          report("ok", label);
           break;
         }
         case "gravity": {

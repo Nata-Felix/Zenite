@@ -473,6 +473,13 @@ export function applyCanvasOps(state: CanvasState, ops: CanvasOp[], ctx: OpsCont
 }
 
 /** O canvas como o Sol lê: cada nó com tipo, nome, id curto, posição, tamanho e ligações. */
+/** Saída pelo nome (a rota "Pesquisa", não "r1"), com o id para o --output. */
+function outputName(state: CanvasState, e: CanvasEdge): string {
+  const flow = state.nodes.find((n) => n.id === e.source)?.element?.flow;
+  const name = flow ? outputsOf(flow).find((o) => o.id === e.sourceHandle)?.label : undefined;
+  return name && name !== e.sourceHandle ? `${name} (${e.sourceHandle})` : e.sourceHandle!;
+}
+
 export function describeCanvas(state: CanvasState): { nodes: object[]; edges: object[] } {
   const label = new Map(state.nodes.map((n) => [n.id, labelOf(n)]));
   return {
@@ -490,7 +497,7 @@ export function describeCanvas(state: CanvasState): { nodes: object[]; edges: ob
       ...(n.element?.flow ? { flow: n.element.flow.type } : {}),
       ...(n.draw ? { shape: n.draw.shape } : {}),
     })),
-    edges: state.edges.map((e: CanvasEdge) => ({ from: label.get(e.source) ?? e.source, to: label.get(e.target) ?? e.target, ...(e.sourceHandle ? { output: e.sourceHandle } : {}) })),
+    edges: state.edges.map((e: CanvasEdge) => ({ from: label.get(e.source) ?? e.source, to: label.get(e.target) ?? e.target, ...(e.sourceHandle ? { output: outputName(state, e) } : {}) })),
   };
 }
 
