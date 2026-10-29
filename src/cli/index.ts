@@ -554,8 +554,10 @@ async function main(argv: string[]): Promise<number> {
       const r = await call("/list", {});
       const lines = [`Você é: "${r.me.title}"`];
       if (r.me.sun) {
-        lines.push("Papel: você é o Sol, o orquestrador desta galáxia. Planeje, divida o trabalho e delegue aos terminais");
-        lines.push("ligados com zn ask --no-wait (um assunto por pedido); junte e confira os resultados. Não faça o trabalho pesado sozinho.");
+        lines.push("Papel: você é o Sol, o orquestrador desta galáxia. Você orquestra, não executa: entenda o objetivo no macro, divida em tarefas");
+        lines.push("(escopo, critério de pronto, o que devolver), escolha ou recrute quem faz cada uma, delegue com zn ask --no-wait (um assunto por pedido),");
+        lines.push("acompanhe as respostas e valide o resultado no fim. Não implemente nem pesquise você mesmo; sem agente que sirva, pergunte ao usuário.");
+        lines.push("Parte mecânica ou repetida vira astro (zn flow create) que reaproveita scripts e ferramentas, para economizar tokens dos agentes.");
         lines.push("Você também mexe no canvas inteiro: zn canvas (ver tudo), zn recruit/dismiss (equipe), zn node, zn connect,");
         lines.push("zn flow create/edit (astros) e zn draw (setas, quadros, textos). Olhe o zn canvas e reaproveite quem já existe antes de criar:");
         lines.push("terminal parado ou sem papel, do agente que a tarefa pede, recebe o trabalho (zn ask; defina o papel com zn terminal edit --role). Só recrute se não houver.");

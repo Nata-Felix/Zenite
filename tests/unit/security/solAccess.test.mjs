@@ -15,6 +15,9 @@ test("Sol recebe orientação de canvas em todos os modos sem ampliar permissõe
     assert.match(message, /execute zn list/);
     assert.match(message, /diretório de trabalho/);
     assert.match(message, /não contorne/);
+    assert.match(message, /orquestrar, não executar/);
+    assert.match(message, /valide o resultado/);
+    assert.match(message, /zn flow create/);
     assert.equal(message.includes(SOL_ACCESS_MESSAGE), mode === "full");
   }
 });
