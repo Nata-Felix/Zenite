@@ -160,17 +160,72 @@ function Actions({ tools }: { tools: Extract<ChatItem, { kind: "tool" }>[] }) {
   );
 }
 
+/** Miniatura de uma imagem enviada: pedida uma vez ao processo principal, que reduz o original. */
+function ChatThumb({ terminal, imageRef }: { terminal: string; imageRef: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void window.o.chat.image(terminal, imageRef).then((url) => { if (active) setSrc(url); }).catch(() => {});
+    return () => { active = false; };
+  }, [terminal, imageRef]);
+  return src ? <img className="chat-thumb" src={src} alt="Imagem enviada" /> : <span className="chat-thumb empty" />;
+}
+
+/** "(Recommended) Azul" / "Azul (Recomendado)": o rótulo limpo e um selo. */
+function OptionText({ text }: { text: string }) {
+  const rec = /\((recommended|recomendad[oa])\)/i;
+  if (!rec.test(text)) return <>{text}</>;
+  return <>{text.replace(rec, "").replace(/\s{2,}/g, " ").trim()}<small className="chat-rec">Recomendado</small></>;
+}
+
+/** Tema escolhido no astro do cabeçalho do card (no modo Chat). */
+export function ThemePicker({ theme, onTheme }: { theme: ChatTheme; onTheme: (t: ChatTheme) => void }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("pointerdown", close);
+    return () => window.removeEventListener("pointerdown", close);
+  }, [open]);
+  return (
+    <span className="chat-theme-picker nodrag" onPointerDown={(e) => e.stopPropagation()}>
+      <button className="chat-theme-current" title="Tema do chat" aria-label="Tema do chat" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <ThemeOrb theme={theme} size={20} />
+      </button>
+      {open && (
+        <div className="chat-menu theme" role="menu">
+          <span className="chat-menu-title">Tema do chat</span>
+          {CHAT_THEMES.map((t) => (
+            <button key={t.value} role="menuitemradio" aria-checked={t.value === theme} onClick={() => { onTheme(t.value); setOpen(false); }}>
+              <ThemeOrb theme={t.value} size={16} /> {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  );
+}
+
 /**
  * Aba Chat do terminal: a mesma sessão do CLI, mostrada como conversa. Lê o arquivo de sessão
  * (main/chatTranscript) e envia pelo mesmo caminho da caixa de mensagem (colar no terminal).
  */
-export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; kind: AgentKind; agentName: string; theme: ChatTheme; onTheme: (t: ChatTheme) => void }) {
+export function ChatView({ id, kind, agentName, theme }: { id: string; kind: AgentKind; agentName: string; theme: ChatTheme }) {
   const [snap, setSnap] = useState<ChatSnapshot | null>(null);
   const [text, setText] = useState("");
   const [files, setFiles] = useState<Attachment[]>([]);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
-  const [menu, setMenu] = useState<"add" | "theme" | null>(null);
+  const [menu, setMenu] = useState<"add" | null>(null);
+  const view = useRef<HTMLDivElement>(null);
+
+  // Abrir o card com duplo clique pode deixar o texto do chat selecionado: começa sem seleção.
+  useEffect(() => {
+    const clear = () => { const s = getSelection(); if (s && view.current && s.anchorNode && view.current.contains(s.anchorNode)) s.removeAllRanges(); };
+    clear();
+    const timer = setTimeout(clear, 350);
+    return () => clearTimeout(timer);
+  }, []);
   const [slashIndex, setSlashIndex] = useState(0);
   const scroller = useRef<HTMLDivElement>(null);
   const compose = useRef<HTMLDivElement>(null);
@@ -274,26 +329,13 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
   const merged = !!openQuestion && screenChoices.length > 0;
   const textarea = useRef<HTMLTextAreaElement>(null);
   const focusInput = () => textarea.current?.focus();
+  /** Esc no terminal: fecha o menu aberto (/model, permissão...) sem escolher nada. */
+  const cancelMenu = () => { setError(""); window.o.pty.write(id, "\x1b"); };
 
   return (
-    <div className={`chat-view chat-theme-${theme} nodrag nowheel`}
+    <div ref={view} className={`chat-view chat-theme-${theme} nodrag nowheel`}
       onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void fromFiles(e.dataTransfer.files); }}>
       <div className="chat-backdrop" aria-hidden />
-      <div className="chat-themes">
-        <button className="chat-theme-current" title="Tema do chat" aria-expanded={menu === "theme"} onClick={() => setMenu(menu === "theme" ? null : "theme")}>
-          <ThemeOrb theme={theme} size={16} />
-        </button>
-        {menu === "theme" && (
-          <div className="chat-menu right" role="menu">
-            <span className="chat-menu-title">Tema</span>
-            {CHAT_THEMES.map((t) => (
-              <button key={t.value} role="menuitemradio" aria-checked={t.value === theme} onClick={() => { onTheme(t.value); setMenu(null); }}>
-                <ThemeOrb theme={t.value} size={16} /> {t.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div className="chat-scroll" ref={scroller} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }}>
         {status === "unsupported" && <p className="chat-empty">Este programa não grava a conversa num formato que o Zênite leia. Use a aba Terminal.</p>}
@@ -308,7 +350,11 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
           if (item.kind === "user") {
             return (
               <div key={item.id} className="chat-user">
-                <div className="chat-bubble">{item.text}{item.images > 0 && <span className="chat-images">{item.images} {item.images === 1 ? "imagem" : "imagens"}</span>}</div>
+                <div className="chat-bubble">
+                  {item.imageRefs?.length ? <span className="chat-thumbs">{item.imageRefs.map((ref) => <ChatThumb key={ref} terminal={id} imageRef={ref} />)}</span>
+                    : item.images > 0 && <span className="chat-images">{item.images} {item.images === 1 ? "imagem" : "imagens"}</span>}
+                  {item.text}
+                </div>
               </div>
             );
           }
@@ -327,11 +373,12 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
                       {qi === 0 && menu
                         ? menu.filter((c) => !c.other || c === menu.find((x) => x.other)).map((c) => c.other
                           ? <button key={c.raw} className="other" title={c.label} onClick={() => void choose(c.raw).then(focusInput)}>Outra resposta…</button>
-                          : <button key={c.raw} onClick={() => void choose(c.raw)}>{c.label}</button>)
+                          : <button key={c.raw} onClick={() => void choose(c.raw)}><OptionText text={c.label} /></button>)
                         : q.options.map((o) => (
                           <button key={o} disabled={item.answered || (!byText && qi > 0) || sending}
-                            onClick={() => void (byText ? deliver(item.questions.length > 1 ? `${q.question} ${o}` : o) : choose(o))}>{o}</button>
+                            onClick={() => void (byText ? deliver(item.questions.length > 1 ? `${q.question} ${o}` : o) : choose(o))}><OptionText text={o} /></button>
                         ))}
+                      {qi === 0 && menu && <button className="cancel" title="Fecha o menu sem escolher (Esc)" onClick={cancelMenu}>Cancelar</button>}
                     </div>
                   </div>
                 ))}
@@ -354,7 +401,10 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
         {screenChoices.length > 0 && !merged && (
           <div className="chat-question screen">
             <p>Esperando sua escolha no terminal</p>
-            <div className="chat-options">{screenChoices.map((c) => <button key={c.raw} onClick={() => void choose(c.raw)}>{c.raw}</button>)}</div>
+            <div className="chat-options">
+              {screenChoices.map((c) => <button key={c.raw} onClick={() => void choose(c.raw)}><OptionText text={c.raw} /></button>)}
+              <button className="cancel" title="Fecha o menu sem escolher (Esc)" onClick={cancelMenu}>Cancelar</button>
+            </div>
           </div>
         )}
       </div>

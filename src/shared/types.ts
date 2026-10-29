@@ -21,7 +21,8 @@ export interface ChatQuestion { question: string; options: string[]; multi: bool
 
 /** Um passo da conversa lido do arquivo de sessão do CLI (aba Chat). */
 export type ChatItem =
-  | { id: string; kind: "user"; text: string; images: number }
+  /** imageRefs: miniaturas pedidas com chat.image (o base64 não vem junto). */
+  | { id: string; kind: "user"; text: string; images: number; imageRefs?: string[] }
   | { id: string; kind: "assistant"; text: string; options?: { key: string; label: string }[] }
   | { id: string; kind: "tool"; name: string; label: string }
   /** answerBy "text": o CLI não abre menu (pergunta assíncrona do Codex); a resposta vai como mensagem. */
@@ -892,6 +893,8 @@ export interface OApi {
   chat: {
     /** A conversa do terminal lida do arquivo de sessão do CLI (aba Chat). */
     read(id: string): Promise<ChatSnapshot>;
+    /** Miniatura (data URL) de uma imagem da conversa; null se não der para abrir. */
+    image(id: string, ref: string): Promise<string | null>;
   };
   attention: {
     get(): Promise<Record<string, AttentionInfo>>;

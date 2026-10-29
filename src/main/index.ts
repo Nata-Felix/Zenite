@@ -778,6 +778,24 @@ app.whenReady().then(async () => {
     const { items, working } = transcripts.read(id, agent, file);
     return { status: "ok", items: withOptions(items), working, choices };
   });
+  // Miniatura de uma imagem enviada na conversa (reduzida aqui para não levar o original à tela).
+  const chatThumbs = new Map<string, string>();
+  ipcMain.handle("chat:image", (e, id: string, ref: string): string | null => {
+    requireMainUI(e);
+    const key = `${transcripts.fileOf(id)}#${ref}`;
+    const cached = chatThumbs.get(key);
+    if (cached) return cached;
+    const image = transcripts.image(id, ref);
+    if (!image) return null;
+    let picture = image.data ? nativeImage.createFromBuffer(Buffer.from(image.data, "base64")) : image.file && existsSync(image.file) ? nativeImage.createFromPath(image.file) : null;
+    if (!picture || picture.isEmpty()) return null;
+    const { width, height } = picture.getSize();
+    if (width > 360 || height > 360) picture = picture.resize(width >= height ? { width: 360 } : { height: 360 });
+    const url = picture.toDataURL();
+    if (chatThumbs.size > 120) chatThumbs.delete(chatThumbs.keys().next().value!);
+    chatThumbs.set(key, url);
+    return url;
+  });
   ipcMain.handle("composer:choose", async (e, id: string, choice: string) => {
     requireMainUI(e);
     if (!ptys.has(id)) throw new Error("O terminal não está aberto.");

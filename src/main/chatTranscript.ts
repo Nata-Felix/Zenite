@@ -21,9 +21,23 @@ export interface ParseState {
   /** Chamadas de ferramenta por id, para marcar a pergunta respondida quando chega o resultado. */
   calls: Map<string, ChatItem>;
   seq: number;
+  /** Imagens das mensagens, por referência: o base64 não viaja a cada leitura, só quando a tela pede a miniatura. */
+  images: Map<string, ChatImage>;
 }
 
-export const newState = (): ParseState => ({ items: [], working: false, calls: new Map(), seq: 0 });
+/** Imagem anexada: em base64 (Claude, Codex) ou num arquivo (Antigravity). */
+export interface ChatImage { mime: string; data?: string; file?: string }
+
+export const newState = (): ParseState => ({ items: [], working: false, calls: new Map(), seq: 0, images: new Map() });
+
+/** data:image/png;base64,… ou caminho/file:// de imagem. */
+function imageFrom(url: string, mime = "image/png"): ChatImage | undefined {
+  const data = url.match(/^data:([^;,]+);base64,(.*)$/s);
+  if (data) return { mime: data[1], data: data[2] };
+  if (/^file:\/\//i.test(url)) return { mime, file: decodeURIComponent(url.replace(/^file:\/\/\/?/i, "")) };
+  if (/^([A-Za-z]:[\\/]|\/)/.test(url)) return { mime, file: url };
+  return undefined;
+}
 
 const MAX_ITEMS = 400;
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -43,15 +57,27 @@ function push(state: ParseState, item: NewItem): ChatItem {
 }
 
 /** Mensagem da pessoa ou aviso do Zênite (orientação do Sol, pedidos de outros agentes). */
-function pushUser(state: ParseState, text: string, images = 0) {
-  const clean = text.replace(/<\/?pasted_content[^>]*>/g, "").trim();
-  if (!clean && !images) return;
+/** Devolve false quando não era uma mensagem (vazia ou interrupção): aí o agente não está trabalhando. */
+function pushUser(state: ParseState, text: string, images: (ChatImage | undefined)[] = []): boolean {
+  // "[Image #2]" é o marcador do CLI para a imagem colada; ela aparece como miniatura.
+  const clean = text.replace(/<\/?pasted_content[^>]*>/g, "").replace(/\[Image #\d+\]\s*/g, "").trim();
+  if (!clean && !images.length) return false;
+  // Esc ou Cancelar no meio da resposta: o Claude grava como se fosse uma mensagem da pessoa.
+  if (/^\[Request interrupted by user/i.test(clean)) {
+    for (const item of state.items) if (item.kind === "question") item.answered = true;
+    state.working = false;
+    push(state, { kind: "note", text: "Interrompido" });
+    return false;
+  }
   if (/^\[Zênite\b|^\[Z.nite\s/.test(clean)) push(state, { kind: "note", text: short(clean.split("\n")[0].replace(/^\[|\]$/g, ""), 120) });
   else {
     // Mensagem da pessoa: qualquer pergunta que ainda estava aberta foi respondida (ou deixada de lado).
     for (const item of state.items) if (item.kind === "question") item.answered = true;
-    push(state, { kind: "user", text: clean, images });
+    const refs: string[] = [];
+    images.forEach((image, i) => { if (image) { const ref = `${state.seq + 1}-${i}`; state.images.set(ref, image); refs.push(ref); } });
+    push(state, { kind: "user", text: clean, images: images.length, ...(refs.length ? { imageRefs: refs } : {}) });
   }
+  return true;
 }
 
 /** callId vazio: a pergunta não espera resultado de ferramenta e só fecha com a próxima mensagem. */
@@ -86,18 +112,21 @@ export function parseClaude(state: ParseState, o: any) {
       const cmd = content.match(/<command-name>([^<]+)<\/command-name>/);
       if (cmd) { push(state, { kind: "user", text: cmd[1].trim(), images: 0 }); return; }
       if (/^<(local-command|system-reminder|bash-)/.test(content.trim())) return;
-      pushUser(state, content);
-      state.working = true;
+      if (pushUser(state, content)) state.working = true;
       return;
     }
     if (!Array.isArray(content)) return;
-    let text = "", images = 0, human = false;
+    let text = "", human = false;
+    const images: (ChatImage | undefined)[] = [];
     for (const c of content) {
       if (c.type === "tool_result") answered(state, str(c.tool_use_id));
-      else if (c.type === "image") { images++; human = true; }
+      else if (c.type === "image") {
+        images.push(c.source?.type === "base64" ? { mime: str(c.source.media_type) || "image/png", data: str(c.source.data) } : undefined);
+        human = true;
+      }
       else if (c.type === "text" && !/^\s*<(system-reminder|local-command)/.test(str(c.text))) { text += (text ? "\n" : "") + str(c.text); human = true; }
     }
-    if (human) { pushUser(state, text, images); state.working = true; }
+    if (human && pushUser(state, text, images)) state.working = true;
     return;
   }
   state.working = true;
@@ -132,8 +161,8 @@ export function parseCodex(state: ParseState, o: any) {
     } else if (p.role === "user") {
       // Instruções injetadas pelo próprio Codex (AGENTS.md, <environment_context>...) não são da pessoa.
       const texts = parts.filter((c: any) => c.type === "input_text" && !/^\s*(<|# AGENTS\.md)/.test(str(c.text))).map((c: any) => str(c.text));
-      const images = parts.filter((c: any) => c.type === "input_image").length;
-      if (texts.length || images) pushUser(state, texts.join("\n"), images);
+      const images = parts.filter((c: any) => c.type === "input_image").map((c: any) => imageFrom(str(c.image_url)));
+      if (texts.length || images.length) pushUser(state, texts.join("\n"), images);
     }
     return;
   }
@@ -162,8 +191,7 @@ export function parseAntigravity(state: ParseState, o: any) {
   if (o.type === "USER_INPUT") {
     const raw = str(o.content);
     const text = raw.match(/<USER_REQUEST>\s*([\s\S]*?)\s*<\/USER_REQUEST>/)?.[1] ?? raw;
-    pushUser(state, text, Array.isArray(o.media) ? o.media.length : 0);
-    state.working = true;
+    if (pushUser(state, text, (Array.isArray(o.media) ? o.media : []).map((m: any) => imageFrom(str(m?.uri), str(m?.mime_type) || undefined)))) state.working = true;
     return;
   }
   if (o.type === "PLANNER_RESPONSE") {
@@ -280,6 +308,8 @@ export class TranscriptReader {
   files(): Set<string> { return new Set([...this.tails.values()].map((t) => t.file)); }
   fileOf(id: string): string | undefined { return this.tails.get(id)?.file; }
   forget(id: string) { this.tails.delete(id); }
+  /** A imagem de uma mensagem já lida (ref de ChatItem.imageRefs). */
+  image(id: string, ref: string): ChatImage | undefined { return this.tails.get(id)?.state.images.get(ref); }
 
   read(id: string, agent: ChatAgent, file: string): { items: ChatItem[]; working: boolean } {
     let tail = this.tails.get(id);

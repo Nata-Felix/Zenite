@@ -62,25 +62,37 @@ Os blocos de código e as tabelas também ganharam botão de copiar, e cada resp
 
 ## Média: visual e acabamento
 
-### 6. Imagem enviada aparece como "[Image #2]"
+Os oito foram corrigidos e conferidos ao vivo:
+- **6:** miniatura da imagem no balão.
+- **7:** botão Cancelar (Esc) nos menus.
+- **8:** sem o zoom no modo Chat.
+- **9:** cena do tema só no topo.
+- **10:** tema escolhido no astro do cabeçalho.
+- **11:** checklist só com a caixa.
+- **12:** selo "Recomendado".
+- **13:** o chat limpa a seleção ao abrir.
+
+Apareceu um caso novo no teste: o cancelamento gravado pelo Claude ("[Request interrupted…]") aparecia como mensagem sua. Agora vira a nota "Interrompido".
+
+### 6. Imagem enviada aparece como "[Image #2]" — corrigido
 - **O que acontece:** o balão mostra `[Image #2]Descreva esta imagem…` e embaixo só "1 imagem", sem
   miniatura. O Claude recebeu e descreveu a imagem certo; o problema é só a exibição.
 - **Correção sugerida:** tirar `[Image #N]` do texto (Claude e Codex) e mostrar a miniatura. O
   Claude grava a imagem em base64 no arquivo; para os outros, guardar o caminho enviado pelo chat.
 
-### 7. Não dá para cancelar um menu pelo chat
+### 7. Não dá para cancelar um menu pelo chat — corrigido
 - **O que acontece:** `/model` abre o menu de modelos, que aparece como botões, mas não há como sair
   sem escolher (no terminal seria Esc).
 - **Correção sugerida:** botão "Cancelar" no cartão "Esperando sua escolha", enviando `\x1b`
   (`window.o.pty.write`).
 
-### 8. Cabeçalho apertado: chip sobreposto
+### 8. Cabeçalho apertado: chip sobreposto — corrigido
 - **Onde:** Codex (tem o chip de uso "5h 5% · sem 17%").
 - **O que acontece:** o chip "Esperando você" fica cortado e encoberto pelo controle de zoom.
 - **Correção sugerida:** esconder o zoom no modo Chat (ele só muda a letra do terminal) e deixar os
   chips encolherem com reticências.
 
-### 9. A decoração do tema atravessa o conteúdo
+### 9. A decoração do tema atravessa o conteúdo — corrigido
 - **Saturno:** a linha de órbita cruza o chat de ponta a ponta, passando por cima do texto, das
   tabelas e das perguntas.
 - **Sol:** o anel do sol passa por trás dos balões, tabelas e blocos de código, mais visível em
@@ -88,22 +100,22 @@ Os blocos de código e as tabelas também ganharam botão de copiar, e cada resp
 - **Correção sugerida:** limitar a cena ao topo (uns 140 px) com `mask-image` em degradê, como o
   horizonte do Netuno já faz.
 
-### 10. O botão de tema flutua por cima do conteúdo
+### 10. O botão de tema flutua por cima do conteúdo — corrigido
 - **O que acontece:** o astro no canto superior direito cobre o canto do balão do usuário e dos
   títulos ao rolar.
 - **Correção sugerida:** levar o botão para o cabeçalho, ao lado das abas, ou reservar uma margem
   à direita no topo.
 
-### 11. Checklist com marcador duplo
+### 11. Checklist com marcador duplo — corrigido
 - **O que acontece:** cada item mostra o ponto da lista e a caixa de seleção.
 - **Correção sugerida:** `li:has(> input[type="checkbox"]) { list-style: none }` e menos recuo na
   lista.
 
-### 12. Opção "(Recommended)" crua no Antigravity
+### 12. Opção "(Recommended)" crua no Antigravity — corrigido
 - **O que acontece:** o botão mostra "(Recommended) Azul".
 - **Correção sugerida:** tirar o prefixo e mostrar um selo "Recomendado" no botão.
 
-### 13. Duplo clique para abrir o card seleciona todo o texto do chat
+### 13. Duplo clique para abrir o card seleciona todo o texto do chat — corrigido
 - **O que aconteceu:** na visão resumida, o duplo clique na bolinha abriu o card e o texto inteiro
   do chat ficou selecionado (azul). **Confirmar** com mouse de verdade: no teste o clique foi
   sintético.

@@ -99,6 +99,7 @@ const api: OApi = {
   },
   chat: {
     read: (id) => ipcRenderer.invoke("chat:read", id),
+    image: (id, ref) => ipcRenderer.invoke("chat:image", id, ref),
   },
   attention: {
     get: () => ipcRenderer.invoke("attention:get"),

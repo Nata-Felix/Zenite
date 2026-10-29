@@ -3,7 +3,7 @@ import { Sun, X } from "lucide-react";
 import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
 import { resizeGuard } from "../interaction";
 import { presetFor } from "../agents";
-import { ChatView, defaultChatTheme, ThemeOrb } from "./ChatView";
+import { ChatView, defaultChatTheme, ThemePicker } from "./ChatView";
 import type { CanvasFlowNode } from "../nodes";
 import { EditableTitle } from "./EditableTitle";
 import { ProcessChip } from "./ProcessChip";
@@ -43,7 +43,7 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
       )}
       <Handle type="target" position={Position.Left} />
       <div className="terminal-header drag-handle">
-        {chat ? <ThemeOrb theme={theme} size={20} /> : (
+        {chat ? <ThemePicker theme={theme} onTheme={(t) => actions.terminalChat(id, { chatTheme: t })} /> : (
           <span className="agent-chip">
             <preset.icon size={13} />
           </span>
@@ -74,12 +74,15 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
           </span>
         )}
         {(terminal.cwd || isolated) && <span className="terminal-cwd" title={isolated ? `Ambiente isolado. Pasta de referência no computador: ${terminal.cwd}. Os arquivos dessa pasta não estão montados no terminal.` : terminal.cwd}>{isolated ? "Isolado · /workspace" : terminal.cwd}</span>}
-        <ZoomControl
-          percent={((terminal.appearance?.fontSize ?? terminalPrefs().fontSize) / terminalPrefs().fontSize) * 100}
-          what="a letra"
-          onStep={(d) => actions.terminalFontSize(id, Math.min(32, Math.max(8, (terminal.appearance?.fontSize ?? terminalPrefs().fontSize) + d)))}
-          onReset={() => actions.terminalFontSize(id, undefined)}
-        />
+        {/* O zoom muda só a letra do terminal: no modo Chat ele não faz nada e só aperta o cabeçalho. */}
+        {!chat && (
+          <ZoomControl
+            percent={((terminal.appearance?.fontSize ?? terminalPrefs().fontSize) / terminalPrefs().fontSize) * 100}
+            what="a letra"
+            onStep={(d) => actions.terminalFontSize(id, Math.min(32, Math.max(8, (terminal.appearance?.fontSize ?? terminalPrefs().fontSize) + d)))}
+            onReset={() => actions.terminalFontSize(id, undefined)}
+          />
+        )}
         <UsageChip terminalId={id} />
         <ProcessChip terminalId={id} />
         <button className="icon-button terminal-close nodrag" title="Fechar terminal" onClick={() => actions.close(id)}>
@@ -90,7 +93,7 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
         <ScreenFrame>
           <TerminalView spec={terminal} reloadVersion={data.reloadVersion} onAliveChange={setAlive} onLoadingChange={(loading) => actions.terminalLoading(id, loading)} />
         </ScreenFrame>
-        {chat && <ChatView id={id} kind={preset.kind} agentName={preset.kind === "openrouter" ? "Claude" : preset.title.replace(/ Code$/, "")} theme={theme} onTheme={(t) => actions.terminalChat(id, { chatTheme: t })} />}
+        {chat && <ChatView id={id} kind={preset.kind} agentName={preset.kind === "openrouter" ? "Claude" : preset.title.replace(/ Code$/, "")} theme={theme} />}
       </div>
       {/* Com Alt apertado, cobre o terminal: arrastar de qualquer ponto move o elemento. */}
       <div className="move-shield drag-handle" />

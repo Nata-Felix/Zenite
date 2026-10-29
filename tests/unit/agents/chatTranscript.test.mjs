@@ -136,3 +136,34 @@ test("Localizar: Claude pelo pid, Codex pela pasta sem pegar o de outro terminal
   writeFileSync(join(agy, "cache", "last_conversations.json"), JSON.stringify({ "C:\\Proj": "conv1" }));
   assert.equal(antigravityFile(agy, cwd, 0, new Set()), join(t, "transcript.jsonl"));
 });
+
+test("Imagens: o marcador [Image #N] sai do texto e cada imagem vira uma referência", () => {
+  const dir = mkdtempSync(join(tmpdir(), "chat-img-"));
+  const file = join(dir, "s.jsonl");
+  writeFileSync(file, [
+    { type: "user", message: { content: [{ type: "text", text: "[Image #2]Descreva esta imagem." }, { type: "image", source: { type: "base64", media_type: "image/png", data: "QUJD" } }] } },
+  ].map((o) => JSON.stringify(o)).join("\n") + "\n");
+  const r = new TranscriptReader();
+  const [msg] = r.read("t", "claude", file).items;
+  assert.equal(msg.text, "Descreva esta imagem.");
+  assert.equal(msg.images, 1);
+  assert.deepEqual(r.image("t", msg.imageRefs[0]), { mime: "image/png", data: "QUJD" });
+});
+
+test("Imagens: Codex em data URL e Antigravity em arquivo", () => {
+  const codex = run("codex", [{ type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "veja" }, { type: "input_image", image_url: "data:image/jpeg;base64,/9j/AA" }] } }]);
+  assert.deepEqual(codex.images.get(codex.items[0].imageRefs[0]), { mime: "image/jpeg", data: "/9j/AA" });
+  const agy = run("antigravity", [{ step_index: 0, type: "USER_INPUT", status: "DONE", content: "<USER_REQUEST>veja</USER_REQUEST>", media: [{ mime_type: "image/png", uri: "file:///C:/tmp/print.png" }] }]);
+  assert.deepEqual(agy.images.get(agy.items[0].imageRefs[0]), { mime: "image/png", file: "C:/tmp/print.png" });
+});
+
+test("Claude: interrupção vira nota, fecha a pergunta e para o 'trabalhando'", () => {
+  const s = run("claude", [
+    { type: "assistant", message: { content: [{ type: "tool_use", id: "q", name: "AskUserQuestion", input: { questions: [{ question: "Posso?", options: [{ label: "Sim" }] }] } }] } },
+    { type: "user", message: { content: [{ type: "text", text: "[Request interrupted by user for tool use]" }] } },
+  ]);
+  assert.deepEqual(s.items.map((i) => i.kind), ["question", "note"]);
+  assert.equal(s.items[0].answered, true);
+  assert.equal(s.items[1].text, "Interrompido");
+  assert.equal(s.working, false);
+});
