@@ -508,6 +508,9 @@ export function Canvas({ workspace, universe, accounts, onIndex }: Props) {
       terminalFontSize(id, size) {
         setNodes((ns) => ns.map((n) => (n.id === id && n.data.terminal ? { ...n, data: { ...n.data, terminal: { ...n.data.terminal, appearance: { ...n.data.terminal.appearance, fontSize: size } } } } : n)));
       },
+      terminalChat(id, patch) {
+        setNodes((ns) => ns.map((n) => (n.id === id && n.data.terminal ? { ...n, data: { ...n.data, terminal: { ...n.data.terminal, appearance: { ...n.data.terminal.appearance, ...patch } } } } : n)));
+      },
       terminalLoading(id, loading) {
         setNodes((ns) => ns.map((n) => n.id === id && n.data.terminalLoading !== loading ? { ...n, data: { ...n.data, terminalLoading: loading } } : n));
       },

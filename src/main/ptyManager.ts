@@ -129,6 +129,11 @@ export class PtyManager {
     for (const id of [...this.sessions.keys()]) this.kill(id);
   }
 
+  /** Quando o terminal abriu (ms), ou undefined se não está aberto. */
+  startedAt(id: string): number | undefined {
+    return this.sessions.get(id)?.started;
+  }
+
   /** Id e pid do processo raiz (o shell) de cada terminal aberto. */
   roots(): { id: string; pid: number }[] {
     return [...this.sessions].map(([id, s]) => ({ id, pid: s.proc.pid }));

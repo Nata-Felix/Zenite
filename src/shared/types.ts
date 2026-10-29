@@ -9,6 +9,31 @@ export interface TerminalAppearance {
   font?: string;
   fontSize?: number;
   colors?: string;
+  /** Aba mostrada no cartão: o terminal ou a conversa formatada. */
+  view?: "terminal" | "chat";
+  /** Tema da aba Chat, escolhido pela pessoa. */
+  chatTheme?: ChatTheme;
+}
+
+export type ChatTheme = "sol" | "netuno" | "saturno";
+
+export interface ChatQuestion { question: string; options: string[]; multi: boolean }
+
+/** Um passo da conversa lido do arquivo de sessão do CLI (aba Chat). */
+export type ChatItem =
+  | { id: string; kind: "user"; text: string; images: number }
+  | { id: string; kind: "assistant"; text: string; options?: { key: string; label: string }[] }
+  | { id: string; kind: "tool"; name: string; label: string }
+  | { id: string; kind: "question"; questions: ChatQuestion[]; answered: boolean }
+  | { id: string; kind: "note"; text: string };
+
+export interface ChatSnapshot {
+  /** "unsupported": o programa não grava sessão legível (shell, Grok...); "waiting": ainda sem arquivo. */
+  status: "ok" | "waiting" | "unsupported" | "closed";
+  items: ChatItem[];
+  working: boolean;
+  /** Menu aberto na tela (permissão, confiar na pasta...): só existe na tela, não no arquivo. */
+  choices: string[];
 }
 
 export interface TerminalSpec {
@@ -862,6 +887,10 @@ export interface OApi {
     context(id: string): Promise<{ screen: string; choices: string[]; reply: string; options: { key: string; label: string }[]; needsYou: boolean }>;
     /** Escolhe uma opção do menu aberto no terminal. */
     choose(id: string, choice: string): Promise<void>;
+  };
+  chat: {
+    /** A conversa do terminal lida do arquivo de sessão do CLI (aba Chat). */
+    read(id: string): Promise<ChatSnapshot>;
   };
   attention: {
     get(): Promise<Record<string, AttentionInfo>>;

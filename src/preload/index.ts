@@ -97,6 +97,9 @@ const api: OApi = {
     context: (id) => ipcRenderer.invoke("composer:context", id),
     choose: (id, choice) => ipcRenderer.invoke("composer:choose", id, choice),
   },
+  chat: {
+    read: (id) => ipcRenderer.invoke("chat:read", id),
+  },
   attention: {
     get: () => ipcRenderer.invoke("attention:get"),
     onChanged: (listener) => subscribe("attention:changed", listener),

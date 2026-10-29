@@ -3,6 +3,7 @@ import { Sun, X } from "lucide-react";
 import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
 import { resizeGuard } from "../interaction";
 import { presetFor } from "../agents";
+import { ChatView, defaultChatTheme, ThemeOrb } from "./ChatView";
 import type { CanvasFlowNode } from "../nodes";
 import { EditableTitle } from "./EditableTitle";
 import { ProcessChip } from "./ProcessChip";
@@ -20,6 +21,10 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
   const preset = presetFor(terminal.command, terminal.provider);
   const [alive, setAlive] = useState(true);
   const attention = useAttention(id);
+  // Aba Chat: só para os CLIs que gravam a conversa num arquivo que o Zênite lê.
+  const chatAble = ["claude", "codex", "antigravity", "openrouter"].includes(preset.kind);
+  const chat = chatAble && terminal.appearance?.view === "chat";
+  const theme = terminal.appearance?.chatTheme ?? defaultChatTheme(preset.kind);
   const [isolated, setIsolated] = useState(false);
   useEffect(() => {
     let active = true;
@@ -29,7 +34,7 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
   }, [id]);
 
   return (
-    <div className={`terminal-node${selected ? " selected" : ""}${attention ? ` attention attention-${attention.reason}` : ""}`} style={{ "--agent": terminal.appearance?.color ?? preset.color } as React.CSSProperties}>
+    <div className={`terminal-node${selected ? " selected" : ""}${chat ? ` chat-mode chat-${theme}` : ""}${attention ? ` attention attention-${attention.reason}` : ""}`} style={{ "--agent": terminal.appearance?.color ?? preset.color } as React.CSSProperties}>
       <NodeResizer minWidth={320} minHeight={180} isVisible={selected} lineClassName="resize-line" handleClassName="resize-handle" {...resizeGuard()} />
       {terminal.sun && (
         <div className="sun-crown" title="Sol: o orquestrador desta galáxia">
@@ -38,11 +43,19 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
       )}
       <Handle type="target" position={Position.Left} />
       <div className="terminal-header drag-handle">
-        <span className="agent-chip">
-          <preset.icon size={13} />
-        </span>
+        {chat ? <ThemeOrb theme={theme} size={20} /> : (
+          <span className="agent-chip">
+            <preset.icon size={13} />
+          </span>
+        )}
         <EditableTitle value={terminal.title} onChange={(t) => actions.rename(id, t)} />
         <span className={`status-dot${alive ? " alive" : ""}`} title={alive ? "Em execução" : "Encerrado"} />
+        {chatAble && (
+          <span className="terminal-tabs nodrag" role="tablist">
+            <button role="tab" aria-selected={!chat} onClick={() => actions.terminalChat(id, { view: "terminal" })}>Terminal</button>
+            <button role="tab" aria-selected={chat} onClick={() => actions.terminalChat(id, { view: "chat" })}>Chat</button>
+          </span>
+        )}
         {attention && (
           <button
             className="attention-chip nodrag"
@@ -73,10 +86,11 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
           <X size={14} />
         </button>
       </div>
-      <div className="terminal-screen">
+      <div className={`terminal-screen${chat ? " behind-chat" : ""}`}>
         <ScreenFrame>
           <TerminalView spec={terminal} reloadVersion={data.reloadVersion} onAliveChange={setAlive} onLoadingChange={(loading) => actions.terminalLoading(id, loading)} />
         </ScreenFrame>
+        {chat && <ChatView id={id} kind={preset.kind} agentName={preset.kind === "openrouter" ? "Claude" : preset.title.replace(/ Code$/, "")} theme={theme} onTheme={(t) => actions.terminalChat(id, { chatTheme: t })} />}
       </div>
       {/* Com Alt apertado, cobre o terminal: arrastar de qualquer ponto move o elemento. */}
       <div className="move-shield drag-handle" />

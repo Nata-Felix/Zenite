@@ -4,13 +4,14 @@ import { app, BrowserWindow, clipboard, Menu, powerMonitor, safeStorage, dialog,
 import { homedir } from "node:os";
 import { basename, delimiter, join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { AccountAgent, AccountMeta, AppSettings, AttentionInfo, CanvasExportResult, CanvasNode, CanvasState, CanvasTransferResult, NodeKind, CreatePtyRequest, EnvVar, FlowAgentOptions, FlowSpec, FlowStatus, TaskStatus, TerminalStats, TerminalUsage, WorkspaceMeta } from "../shared/types";
+import type { AccountAgent, AccountMeta, AppSettings, AttentionInfo, ChatSnapshot, CanvasExportResult, CanvasNode, CanvasState, CanvasTransferResult, NodeKind, CreatePtyRequest, EnvVar, FlowAgentOptions, FlowSpec, FlowStatus, TaskStatus, TerminalStats, TerminalUsage, WorkspaceMeta } from "../shared/types";
 import { nodeTitle } from "../shared/types";
 import type { CanvasOpsReply, CanvasUiReply } from "../shared/canvasOps";
 import { RoleStore, SolLog } from "./solTools";
 import { plural } from "../shared/plural";
 import { AttentionTracker, type Attention } from "./attention";
 import { AwayLog, hasNews } from "./awaySummary";
+import { antigravityFile, claudeFile, codexFile, TranscriptReader, withOptions, type ChatAgent } from "./chatTranscript";
 import { composeSteps, lastReply, MAX_ATTACHMENT, replyOptions, stashAttachment, waitingForChoice } from "./composer";
 import { Accounts } from "./accounts";
 import { CanvasAccess } from "./canvasAccess";
@@ -516,6 +517,9 @@ app.whenReady().then(async () => {
   let flowStop: (id: string) => boolean = () => false;
   const flowWaits = new FlowWaits();
   let flowStatus: () => { running: string[]; statuses: Record<string, FlowStatus> } = () => ({ running: [], statuses: {} });
+  /** Aba Chat: leitura incremental dos arquivos de sessão e os pids de cada terminal (para achar a sessão do Claude). */
+  const transcripts = new TranscriptReader();
+  const treePids = new Map<string, number[]>();
   /** Nó de terminal salvo em qualquer canvas (para reiniciar um que não está na tela). */
   const terminalSpec = (id: string) => {
     for (const p of store.places()) {
@@ -738,6 +742,42 @@ app.whenReady().then(async () => {
     const needsYou = waitingForChoice(screen, !!menu) || options.length > 0 || /\?\s*$/.test(reply);
     return { screen: lines.slice(-14).join("\n"), choices: menu?.items.map((i) => i.text) ?? [], reply, options, needsYou };
   });
+  // Aba Chat: a conversa lida do arquivo de sessão do CLI, mais o menu aberto na tela (se houver).
+  const chatHomes = (id: string) => {
+    const accountId = terminalAccount.get(id);
+    const account = accountId ? store.account(accountId) : undefined;
+    const spec = terminalSpec(id);
+    return {
+      claude: spec?.provider === "openrouter" ? accounts.dir(OPENROUTER_ACCOUNT) : account?.agent === "claude" ? accounts.dir(account) : process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude"),
+      codex: account?.agent === "codex" ? accounts.codexHomePath(account) : process.env.CODEX_HOME || join(homedir(), ".codex"),
+      antigravity: join(account?.agent === "antigravity" ? accounts.dir(account) : homedir(), ".gemini", "antigravity-cli"),
+    };
+  };
+  ipcMain.handle("chat:read", async (e, id: string): Promise<ChatSnapshot> => {
+    requireMainUI(e);
+    const spec = terminalSpec(id);
+    const kind = spec ? agentOf(spec.command ?? "", spec.provider) : "other";
+    // Shell, Grok e outros não gravam uma sessão que o Zênite saiba ler; terminal isolado grava dentro do contêiner.
+    if ((kind !== "claude" && kind !== "codex" && kind !== "antigravity") || isolatedRuntime.has(id)) return { status: "unsupported", items: [], working: false, choices: [] };
+    const started = ptys.startedAt(id);
+    if (!started || !spec) { transcripts.forget(id); return { status: "closed", items: [], working: false, choices: [] }; }
+    const agent: ChatAgent = kind;
+    const home = chatHomes(id)[agent];
+    const cwd = spec.cwd && existsSync(spec.cwd) ? spec.cwd : homedir();
+    const since = started - 5_000;
+    // Dois terminais do mesmo CLI na mesma pasta: um não pega o arquivo que já é do outro.
+    const taken = transcripts.files();
+    const mine = transcripts.fileOf(id);
+    if (mine) taken.delete(mine);
+    const file = agent === "claude" ? claudeFile(home, treePids.get(id) ?? [], cwd, since)
+      : agent === "codex" ? codexFile(home, cwd, since, taken)
+      : antigravityFile(home, cwd, since, taken);
+    const screen = (await ptys.snapshot(id, 40)) ?? "";
+    const choices = parseMenu(screen)?.items.map((i) => i.text) ?? [];
+    if (!file) return { status: "waiting", items: [], working: false, choices };
+    const { items, working } = transcripts.read(id, agent, file);
+    return { status: "ok", items: withOptions(items), working, choices };
+  });
   ipcMain.handle("composer:choose", async (e, id: string, choice: string) => {
     requireMainUI(e);
     if (!ptys.has(id)) throw new Error("O terminal não está aberto.");
@@ -812,6 +852,7 @@ app.whenReady().then(async () => {
       const stats: Record<string, TerminalStats> = {};
       for (const { id, pid } of ptys.roots()) {
         const tree = processTree(all, pid);
+        treePids.set(id, tree.processes.map((p) => p.pid));
         stats[id] = { total: tree.total, processes: tree.processes.map((p) => ({ pid: p.pid, name: p.name, rss: p.rss, root: p.pid === pid })) };
       }
       win?.webContents.send("pty:stats", stats);

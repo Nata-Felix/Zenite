@@ -162,3 +162,22 @@ test("slide anda com ←/→ até o esforço", async () => {
   assert.deepEqual(t.keys, ["\x1b[D\x1b[D", "\r"]);
   await assert.rejects(m.slide(t, "ultra"), /não está disponível/);
 });
+
+test("parseMenu: opção numerada que quebrou a linha sem recuo continua no menu (permissão do Antigravity)", () => {
+  const screen = [
+    "Run this command?",
+    "> 1. Yes, run command",
+    "  2. Yes, and always allow in this conversation for commands that start with 'zn canvas'",
+    "  3. Yes, and always allow for commands that start with 'zn canvas' (Persist to",
+    "settings.json)",
+    "  4. No, cancel",
+    "  ↑/↓ Navigate · tab Amend · ctrl+g edit/expand command",
+    "esc to cancel                                                     Gemini 3.8 Flash · high",
+  ].join("\n");
+  assert.deepEqual(m.parseMenu(screen).items.map((i) => i.text), [
+    "1. Yes, run command",
+    "2. Yes, and always allow in this conversation for commands that start with 'zn canvas'",
+    "3. Yes, and always allow for commands that start with 'zn canvas' (Persist to settings.json)",
+    "4. No, cancel",
+  ]);
+});

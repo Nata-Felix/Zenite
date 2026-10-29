@@ -98,10 +98,15 @@ export function parseMenu(screen: string): { items: MenuItem[]; footer: string }
   for (let i = lines.length - 1; i >= 0; i--) if (FOOTER.test(lines[i])) { foot = i; break; }
   if (foot < 0) return null;
   const items: MenuItem[] = [];
+  const NUMBERED = /^(\s*[›>❯▶●]\s+|\s{2,})\d+\.\s/;
+  let wrapped = "";
   for (let i = foot - 1; i >= 0; i--) {
-    const line = lines[i];
+    let line = lines[i];
     if (!line.trim()) continue;
+    // Opção numerada longa que quebrou a linha sem recuo ("…(Persist to" / "settings.json)").
+    if (!ITEM.test(line) && NUMBERED.test(lines[i - 1] ?? "")) { wrapped = `${line.trim()} ${wrapped}`.trim(); continue; }
     if (!ITEM.test(line)) break;
+    if (wrapped) { line = `${line} ${wrapped}`; wrapped = ""; }
     // Linhas de dica do próprio menu ("↓ 35 more", "Search:", réguas, o controle de esforço e os
     // rótulos embaixo dele) não são opções.
     const slider = (l?: string) => !!l && /[◂▸]/.test(l);

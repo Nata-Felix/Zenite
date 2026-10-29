@@ -1,6 +1,6 @@
 import type { Node } from "@xyflow/react";
 import { File, Film, FolderOpen, Globe, Image as ImageIcon, StickyNote, Table2, Orbit, BookOpen, Plug, Eclipse, type LucideIcon } from "lucide-react";
-import type { DrawSpec, ElementSpec, TerminalSpec } from "../shared/types";
+import type { DrawSpec, ElementSpec, TerminalAppearance, TerminalSpec } from "../shared/types";
 
 /** Ações que os nós pedem ao canvas. */
 export interface NodeActions {
@@ -15,6 +15,8 @@ export interface NodeActions {
   editElement(id: string, changes: Partial<ElementSpec>): void;
   /** Tamanho da fonte só deste terminal (undefined = o das Configurações). */
   terminalFontSize(id: string, size: number | undefined): void;
+  /** Aba (Terminal/Chat) e tema do chat deste terminal. */
+  terminalChat(id: string, patch: Pick<TerminalAppearance, "view" | "chatTheme">): void;
   /** Muda o estilo/texto de um ou mais desenhos. */
   updateDraw(ids: string[], patch: Partial<DrawSpec>): void;
   resizeDraw(id: string, width: number, height: number): void;
