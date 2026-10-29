@@ -37,6 +37,7 @@ const api: OApi = {
     isolationStatus: () => ipcRenderer.invoke("isolation:status"),
     prepareIsolation: () => ipcRenderer.invoke("isolation:prepare"),
     installDocker: () => ipcRenderer.invoke("isolation:install-docker"),
+    onDockerProgress: (listener) => subscribe("isolation:install-progress", listener),
     revokeDirectAccess: () => ipcRenderer.invoke("isolation:revoke"),
     list: () => ipcRenderer.invoke("workspaces:list"),
     create: (name, dir) => ipcRenderer.invoke("workspaces:create", name, dir),
@@ -142,6 +143,8 @@ const api: OApi = {
     init: (wsId) => ipcRenderer.invoke("git:init", wsId),
     firstCommit: (wsId) => ipcRenderer.invoke("git:firstCommit", wsId),
     openInstallPage: () => ipcRenderer.send("git:installPage"),
+    install: () => ipcRenderer.invoke("git:install"),
+    onInstallProgress: (listener) => subscribe("git:install-progress", listener),
   },
   env: {
     read: (wsId, uid) => ipcRenderer.invoke("env:read", wsId, uid),

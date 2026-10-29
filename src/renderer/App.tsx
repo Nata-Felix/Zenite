@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { WorkspaceIndex } from "../shared/types";
+import type { InstallProgress, WorkspaceIndex } from "../shared/types";
 import { Canvas } from "./Canvas";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
 import { UpdateDialog } from "./components/UpdateDialog";
 import { CloseDialog } from "./components/CloseDialog";
-import { AppDialog } from "./components/AppDialog";
+import { AppDialog, confirmDialog } from "./components/AppDialog";
+import { InstallProgressBar } from "./components/InstallProgressBar";
 import { AwayPanel } from "./components/AwayPanel";
 import { Composer } from "./components/Composer";
 import { LinkDialog } from "./components/LinkDialog";
@@ -27,6 +28,20 @@ export function App() {
   }, []);
 
   const [gitMissing, setGitMissing] = useState(false);
+  const [gitInstall, setGitInstall] = useState<InstallProgress | null>(null);
+  const [gitError, setGitError] = useState("");
+  useEffect(() => window.o.git.onInstallProgress(setGitInstall), []);
+  // Instala direto pelo WinGet; o site só volta a aparecer se a instalação falhar.
+  const installGit = async () => {
+    if (!await confirmDialog({ title: "Instalar o Git?", message: "O Zênite vai instalar o Git para Windows pelo WinGet (pacote Git.Git, cerca de 70 MB). A instalação aceita os termos do pacote e da fonte WinGet e pode pedir autorização do Windows.", cancel: "Agora não", ok: "Instalar Git" })) return;
+    setGitError("");
+    setGitInstall({ phase: "preparando" });
+    try {
+      const result = await window.o.git.install();
+      if (result.ok) setGitMissing(false);
+      else setGitError(result.error ?? "Não foi possível instalar o Git.");
+    } catch (e) { setGitError(String(e)); } finally { setGitInstall(null); }
+  };
 
   useEffect(() => {
     window.o.workspaces.list().then(setIndex);
@@ -126,12 +141,20 @@ export function App() {
       {zen && zenHint && <div className="zen-hint" role="status">Modo Zen · clique no canvas e aperte Esc para sair</div>}
       {gitMissing && (
         <div className="git-missing">
-          <strong>O git não está instalado.</strong> Sem ele não há memória do projeto, cópias isoladas nem commits dos agentes. Instale com{" "}
-          <code>winget install --id Git.Git -e</code> no PowerShell, ou
-          <button className="ghost" onClick={() => window.o.git.openInstallPage()}>
-            baixe o instalador
-          </button>
-          e reabra o Zênite.
+          <strong>O git não está instalado.</strong> Sem ele não há memória do projeto, cópias isoladas nem commits dos agentes.
+          {gitInstall ? (
+            <InstallProgressBar name="o Git" progress={gitInstall} />
+          ) : (
+            <>
+              <button className="ghost" onClick={() => void installGit()}>Instalar</button>
+              {gitError && (
+                <span className="git-missing-error" role="alert">
+                  {gitError}{" "}
+                  <button className="ghost" onClick={() => window.o.git.openInstallPage()}>Baixar o instalador</button>
+                </span>
+              )}
+            </>
+          )}
         </div>
       )}
       <UpdateDialog />

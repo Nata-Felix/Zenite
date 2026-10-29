@@ -1901,6 +1901,17 @@ button {
   margin: 0 4px;
   padding: 2px 8px;
 }
+.git-missing .install-progress { margin-top: 6px; }
+.git-missing-error { display: block; margin-top: 4px; color: var(--danger); white-space: pre-wrap; }
+
+/* Instalações pelo WinGet (Git, Docker) */
+.install-progress { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.install-progress-label { display: flex; justify-content: space-between; gap: 12px; color: var(--muted, var(--text)); }
+.install-progress-track { position: relative; height: 6px; border-radius: 999px; overflow: hidden; background: color-mix(in srgb, var(--text) 12%, transparent); }
+.install-progress-fill { height: 100%; border-radius: inherit; background: var(--accent); transition: width 0.3s ease; }
+.install-progress-track.indeterminate .install-progress-fill { position: absolute; width: 35%; animation: install-progress-slide 1.4s ease-in-out infinite; }
+@keyframes install-progress-slide { from { left: -35%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .install-progress-track.indeterminate .install-progress-fill { animation: none; left: 0; width: 100%; opacity: 0.5; } }
 
 .git-needed {
   display: flex;

@@ -15,6 +15,7 @@ import { composeSteps, lastReply, MAX_ATTACHMENT, replyOptions, stashAttachment,
 import { Accounts } from "./accounts";
 import { CanvasAccess } from "./canvasAccess";
 import { installDocker, IsolatedRuntime } from "./isolatedRuntime";
+import { wingetInstall } from "./wingetInstall";
 import { isolatedFile } from "./isolatedFiles";
 import { cliTheme } from "./cliTheme";
 import { installGuide, uninstallGuide } from "./agentGuide";
@@ -681,7 +682,7 @@ app.whenReady().then(async () => {
   isolationPort = await control.listenContainers();
   ipcMain.handle("isolation:status", () => isolatedRuntime.status());
   ipcMain.handle("isolation:prepare", () => isolatedRuntime.prepare());
-  ipcMain.handle("isolation:install-docker", (e) => { requireMainUI(e); return installDocker(); });
+  ipcMain.handle("isolation:install-docker", (e) => { requireMainUI(e); return installDocker(progress => win?.webContents.send("isolation:install-progress", progress)); });
 
   // Caixa de mensagem (Ctrl+K): texto e anexos direto no CLI escolhido, sem passar pelo canvas.
   const attachmentsDir = join(dataDir, "anexos");
@@ -1114,6 +1115,13 @@ app.whenReady().then(async () => {
   ipcMain.handle("git:init", (_e, wsId: string) => initRepo(wsDir(wsId)));
   ipcMain.handle("git:firstCommit", (_e, wsId: string) => firstCommit(wsDir(wsId)));
   ipcMain.on("git:installPage", () => void shell.openExternal("https://git-scm.com/download/win"));
+  ipcMain.handle("git:install", async (e) => {
+    requireMainUI(e);
+    const result = await wingetInstall("Git.Git", progress => win?.webContents.send("git:install-progress", progress));
+    // wingetInstall já trouxe o PATH novo para este processo; sem o git nele, a instalação não serviu.
+    const version = await gitVersion();
+    return version ? { ok: true, version } : { ok: false, version, error: result.error ?? "O Git foi instalado, mas ainda não aparece no PATH. Reabra o Zênite." };
+  });
 
   ipcMain.handle("env:read", (_e, wsId: string, uid: string | null) => readEnvInfo(envDir(wsId, uid)));
   ipcMain.handle("env:write", (_e, wsId: string, uid: string | null, entries: EnvVar[]) => writeEnv(envDir(wsId, uid), entries));

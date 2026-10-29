@@ -633,6 +633,12 @@ export interface CreatePtyRequest {
   sun?: boolean;
 }
 
+/** Fase de uma instalação pelo WinGet, lida da saída dele; percent só quando o WinGet informa. */
+export interface InstallProgress {
+  phase: "preparando" | "baixando" | "instalando" | "concluido";
+  percent?: number;
+}
+
 export interface GitRepoState {
   isRepo: boolean;
   hasCommits: boolean;
@@ -773,6 +779,8 @@ export interface OApi {
     prepareIsolation(): Promise<{ ok: boolean; error?: string }>;
     /** Instala o Docker Desktop pelo WinGet (a pessoa confirma antes, na interface). */
     installDocker(): Promise<{ ok: boolean; error?: string }>;
+    /** Progresso da instalação do Docker em andamento. */
+    onDockerProgress(listener: (progress: InstallProgress) => void): () => void;
     revokeDirectAccess(): Promise<void>;
     list(): Promise<WorkspaceIndex>;
     create(name: string, dir: string): Promise<WorkspaceIndex>;
@@ -917,6 +925,9 @@ export interface OApi {
     init(workspaceId: string): Promise<{ ok: boolean; error?: string; files: string[] }>;
     firstCommit(workspaceId: string): Promise<{ ok: boolean; error?: string; needsIdentity?: boolean }>;
     openInstallPage(): void;
+    /** Instala o Git pelo WinGet (a pessoa confirma antes, na interface); devolve a versão nova. */
+    install(): Promise<{ ok: boolean; error?: string; version?: string | null }>;
+    onInstallProgress(listener: (progress: InstallProgress) => void): () => void;
   };
   env: {
     read(workspaceId: string, universeId: string | null): Promise<EnvInfo>;
