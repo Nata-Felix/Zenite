@@ -1,0 +1,139 @@
+# Bugs da aba Chat (teste de 29/10/2026)
+
+Teste ao vivo no Zênite de desenvolvimento (commit `93834a9`), com Claude Code, Codex e Antigravity
+lado a lado. Três rodadas de mensagens pedindo formatações diferentes, mais perguntas interativas,
+comandos `/`, anexo de imagem e menus da tela. As respostas foram enviadas pelo mesmo caminho do
+chat (`composer.send` / `composer.choose`) e conferidas por captura de tela e pelo HTML gerado.
+
+Arquivos principais: `src/renderer/components/ChatView.tsx`, `ChatView.css`,
+`src/main/chatTranscript.ts`, `src/main/agentControl.ts` (`parseMenu`), `src/renderer/markdown.ts`.
+
+## Alta: atrapalham o uso
+
+### 1. A barra de opções do card cobre o campo de mensagem
+- **Onde:** card aberto e selecionado (visão focada). A barra "Editar · Reload · Sol · Constelação…"
+  fica por cima do campo "Envie uma mensagem…".
+- **Prova:** `document.elementFromPoint` no centro, na esquerda e na direita do campo devolve
+  `.node-options-caption`, não o `textarea`. Clicar no campo não dá foco; só dá para digitar
+  focando por código.
+- **Correção sugerida:** no modo Chat, subir a barra para cima do card (ou para fora dele), ou
+  reservar espaço embaixo do chat quando a barra está visível.
+
+### 2. Pergunta do Codex aparece como já respondida
+- **Onde:** Codex, ferramenta `request_user_input_async`.
+- **O que acontece:** a chamada é assíncrona; o Codex grava o `function_call_output` na hora e não
+  abre menu na tela. O chat marca a pergunta como respondida (cinza, botões desligados) sem a
+  pessoa ter escolhido nada.
+- **Correção sugerida:** para `request_user_input*`, não marcar como respondida pelo output; marcar
+  quando chegar a próxima mensagem da pessoa. O clique na opção deve **enviar o texto** da opção
+  (`composer.send`), porque não há menu para `composer.choose`.
+
+### 3. A mesma pergunta aparece duas vezes
+- **Onde:** Claude (`AskUserQuestion`) e Antigravity (`ask_question`).
+- **O que acontece:** aparece o cartão da pergunta (lido do arquivo) e logo abaixo
+  "Esperando sua escolha no terminal" com as mesmas opções (lidas da tela).
+- **Correção sugerida:** se a última pergunta do arquivo está pendente e há menu na tela, mostrar um
+  cartão só: texto da pergunta do arquivo, botões do menu da tela. As opções extras do CLI
+  ("Type something", "Chat about this", "Write-in…") viram "Outra resposta", que foca o campo.
+
+### 4. Opção de menu com lixo de régua
+- **Onde:** menu do `AskUserQuestion` do Claude.
+- **O que acontece:** a opção 4 vem como `4. Type something. ────────…` e o botão fica enorme, com a
+  régua dentro.
+- **Correção sugerida:** no `parseMenu`, tirar caracteres de desenho de caixa (`─━═│`) do texto da
+  opção.
+
+### 5. Tabela larga quebra palavras no meio
+- **Onde:** os três agentes, tabela de 8 colunas.
+- **O que acontece:** "Rec / urso", "Identificaçã / o", "Ren / deri / zaçã / o". A tabela encolhe
+  em vez de rolar para o lado.
+- **Causa:** `.chat-markdown { overflow-wrap: anywhere }` vale também dentro das células.
+- **Correção sugerida:** em `th, td`, usar `overflow-wrap: normal; word-break: normal` e uma largura
+  mínima (ex.: `min-width: 9ch`). A tabela já tem `display: block; overflow-x: auto` e passa a rolar.
+
+## Média: visual e acabamento
+
+### 6. Imagem enviada aparece como "[Image #2]"
+- **O que acontece:** o balão mostra `[Image #2]Descreva esta imagem…` e embaixo só "1 imagem", sem
+  miniatura. O Claude recebeu e descreveu a imagem certo; o problema é só a exibição.
+- **Correção sugerida:** tirar `[Image #N]` do texto (Claude e Codex) e mostrar a miniatura. O
+  Claude grava a imagem em base64 no arquivo; para os outros, guardar o caminho enviado pelo chat.
+
+### 7. Não dá para cancelar um menu pelo chat
+- **O que acontece:** `/model` abre o menu de modelos, que aparece como botões, mas não há como sair
+  sem escolher (no terminal seria Esc).
+- **Correção sugerida:** botão "Cancelar" no cartão "Esperando sua escolha", enviando `\x1b`
+  (`window.o.pty.write`).
+
+### 8. Cabeçalho apertado: chip sobreposto
+- **Onde:** Codex (tem o chip de uso "5h 5% · sem 17%").
+- **O que acontece:** o chip "Esperando você" fica cortado e encoberto pelo controle de zoom.
+- **Correção sugerida:** esconder o zoom no modo Chat (ele só muda a letra do terminal) e deixar os
+  chips encolherem com reticências.
+
+### 9. A decoração do tema atravessa o conteúdo
+- **Saturno:** a linha de órbita cruza o chat de ponta a ponta, passando por cima do texto, das
+  tabelas e das perguntas.
+- **Sol:** o anel do sol passa por trás dos balões, tabelas e blocos de código, mais visível em
+  cards altos.
+- **Correção sugerida:** limitar a cena ao topo (uns 140 px) com `mask-image` em degradê, como o
+  horizonte do Netuno já faz.
+
+### 10. O botão de tema flutua por cima do conteúdo
+- **O que acontece:** o astro no canto superior direito cobre o canto do balão do usuário e dos
+  títulos ao rolar.
+- **Correção sugerida:** levar o botão para o cabeçalho, ao lado das abas, ou reservar uma margem
+  à direita no topo.
+
+### 11. Checklist com marcador duplo
+- **O que acontece:** cada item mostra o ponto da lista e a caixa de seleção.
+- **Correção sugerida:** `li:has(> input[type="checkbox"]) { list-style: none }` e menos recuo na
+  lista.
+
+### 12. Opção "(Recommended)" crua no Antigravity
+- **O que acontece:** o botão mostra "(Recommended) Azul".
+- **Correção sugerida:** tirar o prefixo e mostrar um selo "Recomendado" no botão.
+
+### 13. Duplo clique para abrir o card seleciona todo o texto do chat
+- **O que aconteceu:** na visão resumida, o duplo clique na bolinha abriu o card e o texto inteiro
+  do chat ficou selecionado (azul). **Confirmar** com mouse de verdade: no teste o clique foi
+  sintético.
+
+## Baixa: formatos ainda não suportados
+
+| # | Formato | Como aparece hoje | Sugestão |
+|---|---|---|---|
+| 14 | Nota de rodapé `[^1]` | texto cru `[^1]` e `[^1]: …` | extensão de rodapé no `renderMarkdown` |
+| 15 | Fórmula `$E = mc^2$` | texto cru com `$` | KaTeX, ou mostrar como código |
+| 16 | Bloco ```` ```mermaid ```` | só o código | desenhar o diagrama (mermaid) ou botão "ver diagrama" |
+| 17 | Imagem externa `![logo](https://…)` | ícone de imagem quebrada + "logo" | mostrar como link "logo (example.com)" |
+| 18 | Blocos de código | sem realce; diff sem cor nas linhas `+` e `-` | realce de sintaxe; no mínimo verde/vermelho no diff |
+| 19 | Caminho `C:\…\arquivo.ts:42` | texto comum | link que abre o arquivo na linha |
+| 20 | Opções numeradas | aparecem na resposta **e** como botões logo abaixo | decidir se os botões substituem a lista |
+| 21 | Opção A/B/C clicada | envia só "A" | enviar "A) rótulo", como a caixa Ctrl+K |
+| 22 | Lista de `/` | fixa; o Antigravity tem só 3 comandos | ler a lista real do CLI (`parseSlashList`) |
+
+## O que funcionou
+
+- **Markdown básico nos três:** títulos, negrito, itálico, riscado, código inline, listas de 2 e 3
+  níveis (misturando números e marcadores), citações aninhadas em 3 níveis, linha horizontal,
+  tabela simples, links, URL solta, emojis, `<kbd>` e `<details>`.
+- **Blocos de código:** linha de 200 caracteres rola para o lado, sem estourar o card.
+- **Botões de opção:** opções 1–4 e A–C viram botões nos três agentes, e clicar envia a resposta.
+- **Perguntas interativas:** respondidas pelo chat no Claude e no Antigravity; o agente confirmou a
+  cor escolhida.
+- **Menus da tela:** permissão do Antigravity (4 opções, inclusive a que quebra linha), "confiar na
+  pasta" e `/model` do Claude aparecem como botões.
+- **Comando `/`:** "/" lista os comandos, "/m" filtra para `/model`.
+- **Anexo:** imagem enviada pelo caminho do chat chegou ao Claude e foi descrita.
+- **Leitura ao vivo:** ações e "trabalhando" aparecem durante a resposta.
+
+## Não é bug
+
+- A bandeira 🇧🇷 aparece como "BR": o Windows não desenha bandeiras em emoji.
+- Depois de reiniciar o Zênite, o chat do Claude começa vazio: o processo novo abre uma sessão nova.
+
+## Não testado
+
+- Tema claro do app, Grok (não instalado), terminal isolado (Docker), dois Codex ou dois
+  Antigravity na mesma pasta, conversa muito longa (desempenho da leitura e da rolagem).
