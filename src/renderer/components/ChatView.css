@@ -22,26 +22,8 @@
   cursor: auto;
   user-select: text;
 }
-.chat-theme-netuno {
-  --chat-accent: #3b8bff;
-  --chat-accent-soft: rgba(59, 139, 255, 0.16);
-  --chat-bg: #070d1c;
-  --chat-text: #e4ebf7;
-  --chat-muted: #8b97ad;
-  --chat-bubble: rgba(24, 52, 110, 0.5);
-  --chat-bubble-line: rgba(59, 139, 255, 0.38);
-}
-.chat-theme-saturno {
-  --chat-accent: #b77cff;
-  --chat-accent-soft: rgba(183, 124, 255, 0.16);
-  --chat-bg: #0f0b19;
-  --chat-text: #ebe5f5;
-  --chat-muted: #9a90ab;
-  --chat-bubble: rgba(74, 44, 118, 0.5);
-  --chat-bubble-line: rgba(183, 124, 255, 0.38);
-}
-
-/* Cena de fundo de cada tema: só no topo, para não atravessar o texto da conversa. */
+/* Cena de fundo de cada tema (chatThemes.ts: scene), sempre na cor do tema e só no topo, para
+   não atravessar o texto da conversa. */
 .chat-backdrop {
   position: absolute;
   inset: 0;
@@ -49,23 +31,34 @@
   -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 70px, transparent 190px);
   mask-image: linear-gradient(to bottom, #000 0, #000 70px, transparent 190px);
 }
-.chat-theme-sol .chat-backdrop {
+/* Borda de um astro grande entrando pelo canto (Sol, Mercúrio, Vênus, Marte, Júpiter). */
+.chat-scene-limb .chat-backdrop {
   background:
-    radial-gradient(circle at 104% -8%, rgba(255, 196, 92, 0.55) 0 7%, rgba(245, 140, 30, 0.22) 16%, transparent 34%),
-    radial-gradient(circle at 104% -8%, transparent 31%, rgba(255, 170, 60, 0.28) 31.4%, transparent 32.4%),
-    radial-gradient(ellipse at 80% 0%, rgba(120, 60, 10, 0.35), transparent 60%);
+    radial-gradient(circle at 104% -8%, color-mix(in srgb, var(--chat-accent) 55%, transparent) 0 7%, color-mix(in srgb, var(--chat-accent) 22%, transparent) 16%, transparent 34%),
+    radial-gradient(circle at 104% -8%, transparent 31%, color-mix(in srgb, var(--chat-accent) 30%, transparent) 31.4%, transparent 32.4%),
+    radial-gradient(ellipse at 80% 0%, color-mix(in srgb, var(--chat-accent) 18%, transparent), transparent 60%);
 }
-.chat-theme-netuno .chat-backdrop {
+/* Horizonte de luz no topo (Terra, Netuno). */
+.chat-scene-horizon .chat-backdrop {
   background:
-    radial-gradient(ellipse 90% 14% at 70% 3%, rgba(110, 170, 255, 0.5), rgba(40, 100, 230, 0.22) 45%, transparent 75%),
-    radial-gradient(ellipse 120% 40% at 60% -8%, rgba(30, 70, 170, 0.45), transparent 70%);
+    radial-gradient(ellipse 90% 14% at 70% 3%, color-mix(in srgb, var(--chat-accent) 55%, transparent), color-mix(in srgb, var(--chat-accent) 20%, transparent) 45%, transparent 75%),
+    radial-gradient(ellipse 120% 40% at 60% -8%, color-mix(in srgb, var(--chat-accent) 30%, transparent), transparent 70%);
 }
-.chat-theme-saturno .chat-backdrop {
+/* Linhas de órbita/anel cruzando o canto (Saturno, Urano). */
+.chat-scene-orbit .chat-backdrop {
   background:
-    linear-gradient(152deg, transparent 0 62%, rgba(214, 180, 255, 0.4) 62.2%, transparent 62.6%),
-    radial-gradient(ellipse at 90% 0%, rgba(120, 70, 200, 0.3), transparent 55%);
+    linear-gradient(152deg, transparent 0 62%, color-mix(in srgb, var(--chat-accent) 45%, transparent) 62.2%, transparent 62.6%),
+    linear-gradient(160deg, transparent 0 70%, color-mix(in srgb, var(--chat-accent) 25%, transparent) 70.15%, transparent 70.45%),
+    radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--chat-accent) 22%, transparent), transparent 55%);
 }
-.chat-theme-saturno .chat-backdrop::after {
+/* Risco de luz de estrela com brilho no canto (Sirius, Vega, Betelgeuse). */
+.chat-scene-streak .chat-backdrop {
+  background:
+    linear-gradient(200deg, transparent 0 18%, color-mix(in srgb, var(--chat-accent) 50%, transparent) 18.4%, transparent 19.4%),
+    radial-gradient(circle at 92% 2%, color-mix(in srgb, var(--chat-accent) 45%, transparent), transparent 22%),
+    radial-gradient(ellipse at 70% 0%, color-mix(in srgb, var(--chat-accent) 14%, transparent), transparent 60%);
+}
+.chat-scene-orbit .chat-backdrop::after, .chat-scene-streak .chat-backdrop::after {
   content: "";
   position: absolute;
   right: 22%;
@@ -73,8 +66,8 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #e6d4ff;
-  box-shadow: 0 0 8px 2px rgba(214, 180, 255, 0.7);
+  background: #fff;
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--chat-accent) 70%, transparent);
 }
 
 .chat-scroll {
@@ -271,7 +264,7 @@
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--chat-accent);
-  color: #120d08;
+  color: var(--chat-on-accent, #120d08);
   font-size: 10.5px;
   font-weight: 600;
   vertical-align: 1px;
@@ -314,8 +307,7 @@
 }
 .chat-plus { background: transparent; color: var(--chat-muted); }
 .chat-plus:hover { color: var(--chat-text); background: var(--chat-panel); }
-.chat-send { background: var(--chat-accent); color: #160d02; }
-.chat-theme-netuno .chat-send, .chat-theme-saturno .chat-send { color: #fff; }
+.chat-send { background: var(--chat-accent); color: var(--chat-on-accent, #160d02); }
 .chat-send:disabled { opacity: 0.4; cursor: default; }
 .chat-error { margin: 0; color: #ff8a80; font-size: 12.5px; }
 
@@ -388,12 +380,9 @@
 .terminal-node.chat-mode .terminal-header { background: #0d0b10; border-bottom-color: rgba(255, 255, 255, 0.08); }
 .terminal-node.chat-mode .terminal-header .editable-title,
 .terminal-node.chat-mode .terminal-header input { color: #f2eee8; }
-.terminal-node.chat-mode.chat-sol { --tab-accent: #f5a524; }
-.terminal-node.chat-mode.chat-netuno { --tab-accent: #3b8bff; }
-.terminal-node.chat-mode.chat-saturno { --tab-accent: #b77cff; }
-.terminal-node.chat-mode.chat-sol .terminal-header { background: linear-gradient(180deg, #1c130a, #120d08); }
-.terminal-node.chat-mode.chat-netuno .terminal-header { background: linear-gradient(180deg, #0c1530, #070d1c); }
-.terminal-node.chat-mode.chat-saturno .terminal-header { background: linear-gradient(180deg, #1a1229, #0f0b19); }
+/* Cabeçalho com o tema (variáveis de chatThemes.ts aplicadas no card). */
+.terminal-node.chat-mode .terminal-header { background: linear-gradient(180deg, var(--chat-header), var(--chat-bg)); }
+.terminal-node.chat-mode { border-color: color-mix(in srgb, var(--chat-accent) 35%, var(--line-strong)); }
 .chat-orb { flex-shrink: 0; display: block; }
 /* O terminal continua vivo por baixo do chat (o processo e a tela não podem parar). */
 .terminal-screen.behind-chat .screen-frame { visibility: hidden; }
@@ -432,3 +421,24 @@
 /* Opções da resposta como botões. */
 .chat-reply { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 .chat-reply > small { color: var(--chat-muted); font-size: 11.5px; }
+
+/* Seletor de temas: grade com o astro e o nome, separada em sistema solar e estrelas. */
+.chat-menu.theme { min-width: 300px; padding: 8px; gap: 6px; }
+.chat-theme-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.chat-menu.theme .chat-theme-grid button { flex-direction: column; gap: 4px; padding: 8px 4px; font-size: 11.5px; text-align: center; }
+.chat-menu.theme .chat-theme-grid button[aria-checked="true"] { background: color-mix(in srgb, var(--swatch) 20%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--swatch) 60%, transparent); }
+.chat-menu.theme .chat-theme-grid button:hover { background: color-mix(in srgb, var(--swatch) 14%, transparent); }
+/* Nome do astro ao lado do nome do agente: "Claude Code · Sol". */
+.terminal-astro { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.terminal-node.chat-mode .terminal-astro { color: color-mix(in srgb, var(--chat-accent) 70%, #fff); }
+/* O seletor fica no cabeçalho, fora do .chat-view: precisa das mesmas cores base do chat. */
+.chat-theme-picker {
+  --chat-panel: rgba(255, 255, 255, 0.035);
+  --chat-line: rgba(255, 255, 255, 0.09);
+  --chat-text: #ece6dc;
+  --chat-muted: #9c9389;
+  --chat-accent-soft: rgba(255, 255, 255, 0.08);
+}
+/* Menu do clipe (Arquivo, Imagem, Vídeo, Pasta) e o clipe redondo. */
+.chat-menu.attach { min-width: 200px; }
+.chat-plus { border: 1px solid var(--chat-line); }

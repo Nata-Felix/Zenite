@@ -90,7 +90,7 @@ const api: OApi = {
   },
   composer: {
     targets: () => ipcRenderer.invoke("composer:targets"),
-    pick: () => ipcRenderer.invoke("composer:pick"),
+    pick: (kind) => ipcRenderer.invoke("composer:pick", kind),
     saveImage: (name, bytes) => ipcRenderer.invoke("composer:save-image", name, bytes),
     send: (targets, text, files) => ipcRenderer.invoke("composer:send", targets, text, files),
     dictate: () => ipcRenderer.invoke("composer:dictate"),

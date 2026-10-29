@@ -15,7 +15,7 @@ export interface TerminalAppearance {
   chatTheme?: ChatTheme;
 }
 
-export type ChatTheme = "sol" | "netuno" | "saturno";
+export type ChatTheme = "sol" | "mercurio" | "venus" | "terra" | "marte" | "jupiter" | "saturno" | "urano" | "netuno" | "sirius" | "vega" | "betelgeuse";
 
 export interface ChatQuestion { question: string; options: string[]; multi: boolean }
 
@@ -880,7 +880,8 @@ export interface OApi {
   /** Caixa de mensagem (Ctrl+K): texto e anexos direto no CLI escolhido. */
   composer: {
     targets(): Promise<ComposerTarget[]>;
-    pick(): Promise<string[]>;
+    /** Escolher anexos: arquivos (padrão), imagens, vídeos ou pastas. */
+    pick(kind?: "file" | "image" | "video" | "folder"): Promise<string[]>;
     saveImage(name: string, bytes: Uint8Array): Promise<string>;
     send(targets: string[], text: string, files: string[]): Promise<{ ok: boolean; errors: string[] }>;
     /** Abre o ditado do Windows (Win+H) para falar em vez de digitar. */

@@ -4,6 +4,7 @@ import { Handle, NodeResizer, Position, type NodeProps } from "@xyflow/react";
 import { resizeGuard } from "../interaction";
 import { presetFor } from "../agents";
 import { ChatView, defaultChatTheme, ThemePicker } from "./ChatView";
+import { themeSpec, themeVars } from "../chatThemes";
 import type { CanvasFlowNode } from "../nodes";
 import { EditableTitle } from "./EditableTitle";
 import { ProcessChip } from "./ProcessChip";
@@ -34,7 +35,8 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
   }, [id]);
 
   return (
-    <div className={`terminal-node${selected ? " selected" : ""}${chat ? ` chat-mode chat-${theme}` : ""}${attention ? ` attention attention-${attention.reason}` : ""}`} style={{ "--agent": terminal.appearance?.color ?? preset.color } as React.CSSProperties}>
+    <div className={`terminal-node${selected ? " selected" : ""}${chat ? ` chat-mode chat-${theme}` : ""}${attention ? ` attention attention-${attention.reason}` : ""}`}
+      style={{ ...(chatAble ? themeVars(theme) : {}), "--agent": terminal.appearance?.color ?? preset.color } as React.CSSProperties}>
       <NodeResizer minWidth={320} minHeight={180} isVisible={selected} lineClassName="resize-line" handleClassName="resize-handle" {...resizeGuard()} />
       {terminal.sun && (
         <div className="sun-crown" title="Sol: o orquestrador desta galáxia">
@@ -43,12 +45,14 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
       )}
       <Handle type="target" position={Position.Left} />
       <div className="terminal-header drag-handle">
-        {chat ? <ThemePicker theme={theme} onTheme={(t) => actions.terminalChat(id, { chatTheme: t })} /> : (
+        {/* Agentes com chat: o astro do tema fica no topo do card e troca o tema (nas duas abas). */}
+        {chatAble ? <ThemePicker theme={theme} onTheme={(t) => actions.terminalChat(id, { chatTheme: t })} /> : (
           <span className="agent-chip">
             <preset.icon size={13} />
           </span>
         )}
         <EditableTitle value={terminal.title} onChange={(t) => actions.rename(id, t)} />
+        {chatAble && <span className="terminal-astro" title="Tema do chat">· {themeSpec(theme).label}</span>}
         <span className={`status-dot${alive ? " alive" : ""}`} title={alive ? "Em execução" : "Encerrado"} />
         {chatAble && (
           <span className="terminal-tabs nodrag" role="tablist">

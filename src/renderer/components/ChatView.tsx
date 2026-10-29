@@ -1,56 +1,62 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, ChevronRight, ClipboardPaste, FileText, Paperclip, Plus, X } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { ChevronRight, ClipboardPaste, FileText, Film, FolderOpen, Image as ImageIcon, Paperclip, Send, X } from "lucide-react";
 import type { ChatItem, ChatSnapshot, ChatTheme } from "../../shared/types";
 import { openLinkFromMarkdown } from "../markdown";
 import { enhanceChat, renderChatMarkdown } from "../chatMarkdown";
 import type { AgentKind } from "../agents";
+import { THEMES, themeSpec, themeVars } from "../chatThemes";
 import "./ChatView.css";
 
-export const CHAT_THEMES: { value: ChatTheme; label: string }[] = [
-  { value: "sol", label: "Sol" },
-  { value: "netuno", label: "Netuno" },
-  { value: "saturno", label: "Saturno" },
-];
-
-/** Tema inicial de cada agente; a pessoa troca no próprio chat. */
+/** Tema inicial de cada agente; a pessoa troca no topo do card. */
 export function defaultChatTheme(kind: AgentKind): ChatTheme {
   return kind === "codex" ? "netuno" : kind === "antigravity" ? "saturno" : "sol";
 }
 
-/** O astro do tema: sol com raios, Netuno listrado, Saturno com anel. */
+/** O astro do tema, desenhado a partir de THEMES: sol com raios, estrela cintilante ou planeta. */
 export function ThemeOrb({ theme, size = 22 }: { theme: ChatTheme; size?: number }) {
-  if (theme === "sol") {
+  const uid = useId().replace(/:/g, "");
+  const { orb } = themeSpec(theme);
+  if (orb.type === "sun") {
     return (
       <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="chat-orb">
-        <defs><radialGradient id="orb-sol" cx="40%" cy="38%" r="60%"><stop offset="0" stopColor="#fff4c4" /><stop offset="0.45" stopColor="#ffc24a" /><stop offset="1" stopColor="#e8761c" /></radialGradient></defs>
+        <defs><radialGradient id={`g${uid}`} cx="40%" cy="38%" r="60%"><stop offset="0" stopColor={orb.core[0]} /><stop offset="0.45" stopColor={orb.core[1]} /><stop offset="1" stopColor={orb.core[2]} /></radialGradient></defs>
         {Array.from({ length: 16 }, (_, i) => {
           const a = (i * Math.PI) / 8, r1 = 10.5, r2 = i % 2 ? 14 : 15.5;
-          return <line key={i} x1={16 + r1 * Math.cos(a)} y1={16 + r1 * Math.sin(a)} x2={16 + r2 * Math.cos(a)} y2={16 + r2 * Math.sin(a)} stroke="#ffb53d" strokeWidth={1.2} strokeLinecap="round" opacity={0.85} />;
+          return <line key={i} x1={16 + r1 * Math.cos(a)} y1={16 + r1 * Math.sin(a)} x2={16 + r2 * Math.cos(a)} y2={16 + r2 * Math.sin(a)} stroke={orb.ray} strokeWidth={1.2} strokeLinecap="round" opacity={0.85} />;
         })}
-        <circle cx="16" cy="16" r="8.5" fill="url(#orb-sol)" />
+        <circle cx="16" cy="16" r="8.5" fill={`url(#g${uid})`} />
       </svg>
     );
   }
-  if (theme === "netuno") {
+  if (orb.type === "star") {
     return (
       <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden className="chat-orb">
-        <defs>
-          <radialGradient id="orb-netuno" cx="35%" cy="32%" r="75%"><stop offset="0" stopColor="#8cc2ff" /><stop offset="0.5" stopColor="#2f6fe0" /><stop offset="1" stopColor="#0d2a7a" /></radialGradient>
-          <clipPath id="orb-netuno-clip"><circle cx="16" cy="16" r="13" /></clipPath>
-        </defs>
-        <circle cx="16" cy="16" r="13" fill="url(#orb-netuno)" />
-        <g clipPath="url(#orb-netuno-clip)" opacity="0.35" stroke="#cfe4ff" strokeWidth="1.1" fill="none">
-          <path d="M2 11 Q16 8 30 11" /><path d="M2 16 Q16 13.5 30 16" /><path d="M2 21 Q16 19 30 21" />
-        </g>
+        <defs><radialGradient id={`g${uid}`} cx="50%" cy="50%" r="50%"><stop offset="0" stopColor={orb.core} /><stop offset="0.35" stopColor={orb.glow} stopOpacity="0.75" /><stop offset="1" stopColor={orb.glow} stopOpacity="0" /></radialGradient></defs>
+        <circle cx="16" cy="16" r="15" fill={`url(#g${uid})`} />
+        {/* Cintilação: quatro pontas longas e quatro curtas. */}
+        <path d="M16 1 L17.3 14.7 L31 16 L17.3 17.3 L16 31 L14.7 17.3 L1 16 L14.7 14.7 Z" fill={orb.core} />
+        <path d="M16 7 L16.8 15.2 L25 16 L16.8 16.8 L16 25 L15.2 16.8 L7 16 L15.2 15.2 Z" fill={orb.core} opacity="0.7" transform="rotate(45 16 16)" />
+        <circle cx="16" cy="16" r="3.2" fill={orb.core} />
       </svg>
     );
   }
+  const ring = orb.ring;
+  const w = ring ? 44 : 32;
+  const cx = ring ? 22 : 16;
   return (
-    <svg width={size * 1.35} height={size} viewBox="0 0 44 32" aria-hidden className="chat-orb">
-      <defs><radialGradient id="orb-saturno" cx="38%" cy="35%" r="70%"><stop offset="0" stopColor="#e9d4ff" /><stop offset="0.5" stopColor="#a66cf0" /><stop offset="1" stopColor="#5a2aa8" /></radialGradient></defs>
-      <ellipse cx="22" cy="17" rx="20" ry="5.5" fill="none" stroke="#c9a6ff" strokeWidth="1.6" opacity="0.55" transform="rotate(-14 22 17)" />
-      <circle cx="22" cy="16" r="10" fill="url(#orb-saturno)" />
-      <path d="M3.2 21.3 A20 5.5 -14 0 0 40.8 12.7" fill="none" stroke="#d9c0ff" strokeWidth="1.8" transform="rotate(0)" />
+    <svg width={ring ? size * 1.35 : size} height={size} viewBox={`0 0 ${w} 32`} aria-hidden className="chat-orb">
+      <defs>
+        <radialGradient id={`g${uid}`} cx="36%" cy="32%" r="75%"><stop offset="0" stopColor={orb.colors[0]} /><stop offset="0.5" stopColor={orb.colors[1]} /><stop offset="1" stopColor={orb.colors[2]} /></radialGradient>
+        <clipPath id={`c${uid}`}><circle cx={cx} cy="16" r={ring ? 10 : 13} /></clipPath>
+      </defs>
+      {ring && <ellipse cx={cx} cy="17" rx="20" ry="5.5" fill="none" stroke={ring} strokeWidth="1.6" opacity="0.55" transform={`rotate(-14 ${cx} 17)`} />}
+      <circle cx={cx} cy="16" r={ring ? 10 : 13} fill={`url(#g${uid})`} />
+      <g clipPath={`url(#c${uid})`}>
+        {orb.bands && <g stroke={orb.bands} strokeWidth="1.6" fill="none"><path d={`M${cx - 16} 10 Q${cx} 7.5 ${cx + 16} 10`} /><path d={`M${cx - 16} 15 Q${cx} 13 ${cx + 16} 15`} /><path d={`M${cx - 16} 20 Q${cx} 18.5 ${cx + 16} 20`} /><path d={`M${cx - 16} 24.5 Q${cx} 23.5 ${cx + 16} 24.5`} /></g>}
+        {orb.land && <g fill={orb.land} opacity="0.9"><path d="M8 9 q4 -3 7 0 q2 3 -1 5 q-3 1 -4 4 q-3 0 -3 -4 q-1 -3 1 -5z" /><path d="M18 17 q4 -1 6 2 q1 4 -3 6 q-3 0 -3 -3 q-1 -3 0 -5z" /></g>}
+        {orb.craters && <g fill="rgba(0,0,0,0.25)"><circle cx={cx - 4} cy="11" r="2.4" /><circle cx={cx + 4} cy="18" r="3" /><circle cx={cx - 3} cy="21" r="1.6" /><circle cx={cx + 5} cy="9" r="1.3" /></g>}
+      </g>
+      {ring && <path d={`M${cx - 18.8} 21.3 A20 5.5 -14 0 0 ${cx + 18.8} 12.7`} fill="none" stroke={ring} strokeWidth="1.8" />}
     </svg>
   );
 }
@@ -83,8 +89,17 @@ const SLASH: Record<string, { name: string; description: string }[]> = {
   ],
 };
 
-interface Attachment { path: string; name: string; preview?: string }
+type AttachKind = "file" | "image" | "video" | "folder";
+interface Attachment { path: string; name: string; preview?: string; kind?: AttachKind }
 const IMAGE = /\.(png|jpe?g|gif|webp|bmp)$/i;
+const VIDEO = /\.(mp4|mov|webm|mkv|avi|m4v)$/i;
+/** Menu do clipe: o tipo escolhe o filtro do seletor (pasta abre o seletor de pastas). */
+const ATTACH: { kind: AttachKind; label: string; icon: typeof FileText; color: string }[] = [
+  { kind: "file", label: "Arquivo", icon: FileText, color: "#7aa7ff" },
+  { kind: "image", label: "Imagem", icon: ImageIcon, color: "#6fc3ff" },
+  { kind: "video", label: "Vídeo", icon: Film, color: "#e879f9" },
+  { kind: "folder", label: "Pasta", icon: FolderOpen, color: "#f5c451" },
+];
 
 type Row =
   | { kind: "item"; item: ChatItem }
@@ -188,7 +203,7 @@ function OptionText({ text }: { text: string }) {
   return <>{text.replace(rec, "").replace(/\s{2,}/g, " ").trim()}<small className="chat-rec">Recomendado</small></>;
 }
 
-/** Tema escolhido no astro do cabeçalho do card (no modo Chat). */
+/** Tema escolhido no astro do topo do card: planetas e estrelas, com a cor de cada um. */
 export function ThemePicker({ theme, onTheme }: { theme: ChatTheme; onTheme: (t: ChatTheme) => void }) {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -199,16 +214,23 @@ export function ThemePicker({ theme, onTheme }: { theme: ChatTheme; onTheme: (t:
   }, [open]);
   return (
     <span className="chat-theme-picker nodrag" onPointerDown={(e) => e.stopPropagation()}>
-      <button className="chat-theme-current" title="Tema do chat" aria-label="Tema do chat" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <ThemeOrb theme={theme} size={20} />
+      <button className="chat-theme-current" title={`Tema: ${themeSpec(theme).label} (clique para trocar)`} aria-label="Tema do chat" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <ThemeOrb theme={theme} size={22} />
       </button>
       {open && (
-        <div className="chat-menu theme" role="menu">
-          <span className="chat-menu-title">Tema do chat</span>
-          {CHAT_THEMES.map((t) => (
-            <button key={t.value} role="menuitemradio" aria-checked={t.value === theme} onClick={() => { onTheme(t.value); setOpen(false); }}>
-              <ThemeOrb theme={t.value} size={16} /> {t.label}
-            </button>
+        <div className="chat-menu theme" role="menu" aria-label="Tema do chat">
+          {(["Sistema solar", "Estrelas"] as const).map((group) => (
+            <div key={group} className="chat-theme-group">
+              <span className="chat-menu-title">{group}</span>
+              <div className="chat-theme-grid">
+                {THEMES.filter((t) => t.group === group).map((t) => (
+                  <button key={t.value} role="menuitemradio" aria-checked={t.value === theme} style={{ "--swatch": t.accent } as React.CSSProperties}
+                    onClick={() => { onTheme(t.value); setOpen(false); }}>
+                    <ThemeOrb theme={t.value} size={18} /><span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -354,7 +376,7 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
   const cancelMenu = () => { setError(""); window.o.pty.write(id, "\x1b"); };
 
   return (
-    <div ref={view} className={`chat-view chat-theme-${theme} nodrag nowheel`}
+    <div ref={view} className={`chat-view chat-theme-${theme} chat-scene-${themeSpec(theme).scene} nodrag nowheel`} style={themeVars(theme)}
       onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void fromFiles(e.dataTransfer.files); }}>
       <div className="chat-backdrop" aria-hidden />
 
@@ -445,16 +467,25 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
           </div>
         )}
         {menu === "add" && (
-          <div className="chat-menu" role="menu">
-            <button role="menuitem" onClick={async () => { setMenu(null); add((await window.o.composer.pick()).map((path) => ({ path, name: path.split(/[\\/]/).pop() ?? path }))); }}><Paperclip size={15} /> Arquivos e imagens</button>
-            <button role="menuitem" onClick={() => void pasteImage()}><ClipboardPaste size={15} /> Colar imagem copiada</button>
+          <div className="chat-menu attach" role="menu">
+            {ATTACH.map(({ kind, label, icon: Icon, color }) => (
+              <button key={kind} role="menuitem" onClick={async () => {
+                setMenu(null);
+                add((await window.o.composer.pick(kind)).map((path) => ({ path, name: path.split(/[\\/]/).pop() ?? path, kind })));
+              }}><Icon size={16} style={{ color }} /> {label}</button>
+            ))}
+            <button role="menuitem" onClick={() => void pasteImage()}><ClipboardPaste size={16} /> Colar imagem copiada</button>
           </div>
         )}
         {files.length > 0 && (
           <div className="chat-files">
             {files.map((f) => (
               <span key={f.path} className="chat-file" title={f.path}>
-                {f.preview ? <img src={f.preview} alt="" /> : <FileText size={14} />}
+                {f.preview ? <img src={f.preview} alt="" /> : (() => {
+                  const kind = f.kind ?? (VIDEO.test(f.name) ? "video" : "file");
+                  const item = ATTACH.find((a) => a.kind === kind) ?? ATTACH[0];
+                  return <item.icon size={14} style={{ color: item.color }} />;
+                })()}
                 <span>{f.name}</span>
                 <button aria-label={`Tirar ${f.name}`} onClick={() => setFiles((l) => l.filter((x) => x !== f))}><X size={11} /></button>
               </span>
@@ -463,8 +494,8 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
         )}
         {error && <p className="chat-error" role="alert">{error}</p>}
         <div className="chat-input">
-          <button className="chat-plus" title="Anexar" aria-label="Anexar" aria-expanded={menu === "add"} onClick={() => setMenu(menu === "add" ? null : "add")}><Plus size={16} /></button>
-          <textarea ref={textarea} value={text} rows={Math.min(6, Math.max(1, text.split("\n").length))} placeholder="Envie uma mensagem…  ( / para comandos )"
+          <button className="chat-plus" title="Anexar arquivo, imagem, vídeo ou pasta" aria-label="Anexar" aria-expanded={menu === "add"} onClick={() => setMenu(menu === "add" ? null : "add")}><Paperclip size={16} /></button>
+          <textarea ref={textarea} value={text} rows={Math.min(6, Math.max(1, text.split("\n").length))} placeholder="Mensagem…  ( / para comandos )"
             onChange={(e) => { setText(e.target.value); setSlashIndex(0); }}
             onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void fromFiles(e.clipboardData.files); } }}
             onKeyDown={(e) => {
@@ -472,7 +503,7 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
               if (slash.length && e.key === "Tab") { e.preventDefault(); setText(slash[slashIndex].name); return; }
               if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(slash.length ? slash[Math.min(slashIndex, slash.length - 1)].name : undefined); }
             }} />
-          <button className="chat-send" title="Enviar (Enter)" aria-label="Enviar" disabled={sending || (!text.trim() && !files.length)} onClick={() => void send()}><ArrowUp size={17} /></button>
+          <button className="chat-send" title="Enviar (Enter)" aria-label="Enviar" disabled={sending || (!text.trim() && !files.length)} onClick={() => void send()}><Send size={16} /></button>
         </div>
       </div>
     </div>

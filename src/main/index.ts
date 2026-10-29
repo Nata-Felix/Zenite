@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, watch, writeFileSync, type FSWatcher } from "node:fs";
 import { app, BrowserWindow, clipboard, Menu, powerMonitor, safeStorage, dialog, ipcMain as electronIpcMain, nativeImage, net, Notification, powerSaveBlocker, protocol, shell, webContents } from "electron";
 import { homedir } from "node:os";
-import { basename, delimiter, join, sep } from "node:path";
+import { basename, delimiter, extname, join, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { AccountAgent, AccountMeta, AppSettings, AttentionInfo, ChatSnapshot, CanvasExportResult, CanvasNode, CanvasState, CanvasTransferResult, NodeKind, CreatePtyRequest, EnvVar, FlowAgentOptions, FlowSpec, FlowStatus, TaskStatus, TerminalStats, TerminalUsage, WorkspaceMeta } from "../shared/types";
 import { nodeTitle } from "../shared/types";
@@ -12,7 +12,7 @@ import { plural } from "../shared/plural";
 import { AttentionTracker, type Attention } from "./attention";
 import { AwayLog, hasNews } from "./awaySummary";
 import { antigravityFile, claudeFile, codexFile, TranscriptReader, withOptions, type ChatAgent } from "./chatTranscript";
-import { composeSteps, lastReply, MAX_ATTACHMENT, replyOptions, stashAttachment, waitingForChoice } from "./composer";
+import { composeSteps, IMAGE_EXTENSIONS, lastReply, MAX_ATTACHMENT, replyOptions, stashAttachment, waitingForChoice } from "./composer";
 import { Accounts } from "./accounts";
 import { CanvasAccess } from "./canvasAccess";
 import { installDocker, IsolatedRuntime } from "./isolatedRuntime";
@@ -710,9 +710,15 @@ app.whenReady().then(async () => {
       status: lastTasks[n.id],
     }));
   });
-  ipcMain.handle("composer:pick", async (e) => {
+  ipcMain.handle("composer:pick", async (e, kind: "file" | "image" | "video" | "folder" = "file") => {
     requireMainUI(e);
-    const r = await dialog.showOpenDialog(win!, { title: "Anexar arquivos", properties: ["openFile", "multiSelections"] });
+    const filters = kind === "image" ? [{ name: "Imagens", extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp"] }]
+      : kind === "video" ? [{ name: "Vídeos", extensions: ["mp4", "mov", "webm", "mkv", "avi", "m4v"] }] : undefined;
+    const r = await dialog.showOpenDialog(win!, {
+      title: kind === "folder" ? "Anexar pasta" : kind === "image" ? "Anexar imagens" : kind === "video" ? "Anexar vídeos" : "Anexar arquivos",
+      properties: kind === "folder" ? ["openDirectory", "multiSelections"] : ["openFile", "multiSelections"],
+      filters,
+    });
     return r.canceled ? [] : r.filePaths;
   });
   ipcMain.handle("composer:save-image", (e, name: string, bytes: Uint8Array) => {
@@ -822,7 +828,9 @@ app.whenReady().then(async () => {
     requireMainUI(e);
     const errors: string[] = [];
     let stashed: string[];
-    try { stashed = files.map((f) => f.startsWith(attachmentsDir) ? f : stashAttachment(attachmentsDir, f)); }
+    // Pasta e arquivo grande (vídeo) vão pelo caminho original: copiar não faz sentido (ou nem dá).
+    const keepPath = (f: string) => { try { const st = statSync(f); return st.isDirectory() || (st.size > MAX_ATTACHMENT && !IMAGE_EXTENSIONS.has(extname(f).toLowerCase())); } catch { return false; } };
+    try { stashed = files.map((f) => f.startsWith(attachmentsDir) || keepPath(f) ? f : stashAttachment(attachmentsDir, f)); }
     catch (error) { return { ok: false, errors: [(error as Error).message] }; }
     const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
     // A caixa só espera a validação; as pausas entre colar e dar Enter seguem em segundo plano.
