@@ -699,6 +699,13 @@ export interface UpdateState {
 }
 
 /** Pergunta no visual do app: `ok` é o botão principal; sem `cancel`, é só um aviso. */
+/** Pasta fora da galáxia que a pessoa liberou para o Sol dela (outra galáxia inteira ou uma pasta). */
+export interface PathGrantInfo {
+  entry: string;
+  label: string;
+  detail?: string;
+}
+
 export interface AppDialogRequest {
   id: number;
   title: string;
@@ -755,6 +762,9 @@ export interface OApi {
     setActive(id: string): Promise<WorkspaceIndex>;
     /** Abre o seletor de pastas do sistema; `start` é onde ele começa. */
     pickDirectory(start?: string): Promise<string | null>;
+    /** O que o Sol desta galáxia pode ligar fora dela (liberado pelo "Lembrar" do pop-up). */
+    pathGrants(id: string): Promise<PathGrantInfo[]>;
+    revokePathGrant(id: string, entry: string): Promise<PathGrantInfo[]>;
     /** O processo principal mudou o índice (ex.: um agente deixou uma proposta de commit). */
     onChanged(listener: (index: WorkspaceIndex) => void): () => void;
     setSettings(settings: AppSettings): Promise<WorkspaceIndex>;

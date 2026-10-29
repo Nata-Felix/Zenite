@@ -3,7 +3,8 @@ import { extname, join, basename, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { CanvasEdge, CanvasNode, CanvasPatch, ElementSpec, TerminalSpec } from "../shared/types";
 import { nodeKind, nodeTitle } from "../shared/types";
-import { tryCanvasOps, type CanvasOp, type CanvasOpsReply, type CanvasOpsRequest, type CanvasUiAction, type CanvasUiReply, type CanvasUiRequest } from "../shared/canvasOps";
+import { CanvasOpError, guardPaths, tryCanvasOps, type CanvasOp, type CanvasOpsReply, type CanvasOpsRequest, type CanvasUiAction, type CanvasUiReply, type CanvasUiRequest } from "../shared/canvasOps";
+import { allowedDirs, pathGuard, type PathGrants } from "./workspacePaths";
 import type { WorkspaceStore } from "./workspaceStore";
 
 const IMAGE_EXT = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".avif", ".ico"]);
@@ -98,6 +99,10 @@ export interface ElementEvents {
   startTerminal?(terminal: TerminalSpec): void;
   /** Pedido de tela do Sol (organizar, enquadrar, print...). */
   ui?(request: CanvasUiRequest): void;
+  /** Sol quer caminhos fora da galáxia: pergunta à pessoa (e guarda, se ela mandar lembrar). */
+  authorizePaths?(canvasId: string, paths: string[]): Promise<boolean>;
+  /** O que a pessoa já liberou para o Sol de cada galáxia, fora das pastas dela. */
+  pathGrants?: PathGrants;
 }
 
 /** Quanto esperar a interface aplicar um lote antes de desistir. */
@@ -277,6 +282,26 @@ export class ElementService {
    * só lê o estado de agora.
    */
   async canvasOps(canvasId: string, ops: CanvasOp[], callerId?: string): Promise<CanvasOpsReply> {
+    // O Sol só aponta arquivos/pastas para dentro da galáxia; fora dela, a pessoa decide. A checagem fica
+    // aqui, antes de escolher quem aplica, para valer com o canvas na tela (a interface não resolve
+    // junções) e fora dela.
+    let allowPath = pathGuard(allowedDirs(this.store, canvasId, this.events.pathGrants));
+    const outside: string[] = [];
+    guardPaths(ops, (path) => allowPath(path) || (outside.push(path), true));
+    if (outside.length) {
+      if (await this.events.authorizePaths?.(canvasId, outside)) {
+        const inside = allowPath;
+        const approved = new Set(outside);
+        allowPath = (path) => inside(path) || approved.has(path);
+      } else {
+        try {
+          guardPaths(ops, allowPath);
+        } catch (err) {
+          const refused = this.events.authorizePaths ? " O usuário não autorizou." : "";
+          return { ok: false, error: `${(err as Error).message}${refused}`, ...(err instanceof CanvasOpError ? { index: err.index } : {}) };
+        }
+      }
+    }
     if (canvasId === this.mountedCanvas && this.events.ops) {
       const requestId = this.nextOpsId++;
       const reply = await new Promise<CanvasOpsReply>((resolve) => {
@@ -293,7 +318,7 @@ export class ElementService {
     // Galáxia ou universo que nunca foi aberto ainda não tem arquivo: começa vazio.
     const canvas = this.store.loadCanvas(canvasId) ?? (this.store.place(canvasId) ? { version: 1 as const, nodes: [], edges: [], viewport: { x: 0, y: 0, zoom: 1 } } : null);
     if (!canvas) return { ok: false, error: "Canvas não encontrado." };
-    const { reply, removed } = tryCanvasOps(canvas, ops, { callerId, newId: () => randomUUID(), seed: () => Math.floor(Math.random() * 2 ** 31) });
+    const { reply, removed } = tryCanvasOps(canvas, ops, { callerId, newId: () => randomUUID(), seed: () => Math.floor(Math.random() * 2 ** 31), allowPath });
     if (!reply.ok || !ops.length) return reply;
     for (const n of removed) {
       if (nodeKind(n) === "terminal") this.events.killTerminal?.(n.id);

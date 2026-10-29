@@ -21,8 +21,8 @@ const KIND: Record<string, string> = {
 const HELP = `zn: usa os elementos ligados a este terminal no canvas do Zênite.
 Em terminal isolado: zn access read CAMINHO --out arquivo-local; zn access write CAMINHO --file arquivo-local; zn access list CAMINHO; zn access mkdir PASTA; zn access delete CAMINHO (arquivo ou pasta vazia).
 Transferências com --out/--file preservam binários e dividem arquivos grandes em partes de 512 KB. --offset/--length selecionam um trecho; --base64 exibe bytes em base64 sem --out.
-Regra: você só usa o que está LIGADO a você. O resto do canvas aparece no "zn list",
-mas não pode ser lido, editado nem usado.
+Regra: você só usa o que está LIGADO a você. O "zn list" mostra só isso; o resto do canvas
+não pode ser lido, editado nem usado.
 
 Só o Sol cria, remove, move e conecta elementos ou substitui mídia. Outros agentes trabalham
 no conteúdo dos elementos ligados e pedem mudanças de estrutura ao Sol. A promoção é feita
@@ -33,7 +33,7 @@ Geral:
   Buraco negro (só Sol): zn node create buraco-negro "Apps" --config '{"members":["id1","id2"],"collapsed":true}'
       zn node edit "Apps" --black-hole-config '{"collapsed":false}'
       Agrupa sem alterar conexões. members usa IDs do canvas. Remover o agrupador preserva o conteúdo.
-  zn list                              Quem você é, o que está ligado e o que existe sem ligação
+  zn list                              Quem você é e o que está ligado a você
 
   zn notify "mensagem"                 Pede a atenção do usuário (selo no terminal e aviso do Windows)
 
@@ -270,9 +270,14 @@ function call(path: string, body: object): Promise<Record<string, any>> {
   }
   const payload = Buffer.from(JSON.stringify(body), "utf8");
   // No isolado, leitura fora das conexões espera o Permitir/Cancelar: avisa em vez de ficar mudo.
+  // Sol ligando caminho fora do workspace também espera a pessoa responder no Zênite.
+  const ops = (body as { ops?: unknown }).ops;
+  const linksPath = path === "/canvas" && Array.isArray(ops) && ops.some((op: { element?: { path?: unknown } }) => op?.element?.path);
   const waiting = process.env.O_ISOLATED === "1" && !["/ask", "/check", "/flow"].includes(path)
     ? setTimeout(() => console.error(`Aguardando autorização no Zênite (terminal ${terminal.slice(0, 8)}). Fora das conexões do canvas, o usuário precisa clicar em Permitir; confira com zn list se o elemento está ligado a você.`), 3000)
-    : undefined;
+    : linksPath
+      ? setTimeout(() => console.error("Aguardando autorização no Zênite: o caminho fica fora deste workspace e o usuário precisa clicar em Permitir."), 3000)
+      : undefined;
   return new Promise<Record<string, any>>((resolve, reject) => {
     const req = request(
       {
@@ -576,10 +581,6 @@ async function main(argv: string[]): Promise<number> {
           if (p.kind === "skill") lines.push(`    Leia quando precisar: zn skill read ${JSON.stringify(p.title)}`);
           if (p.kind === "service") lines.push(`    Usar pelo conector: zn service test ${JSON.stringify(p.title)} (veja zn help)`);
         }
-      }
-      if (r.unlinked.length) {
-        lines.push("No canvas, sem ligação com você (não pode usar):");
-        for (const p of r.unlinked) lines.push(`  - "${p.title}" [${KIND[p.kind] ?? p.kind}]`);
       }
       if (r.pendingForMe.length) {
         lines.push("Pedidos esperando sua resposta:");

@@ -431,6 +431,7 @@ export class ControlServer {
     }
   }
 
+  /** Só o que está ligado direto a quem chamou: o resto do canvas (e de outras galáxias) nem aparece. */
   private list(hood: Neighborhood) {
     const waitingFor = new Set([...this.pending.values()].map((a) => a.to.id));
     return {
@@ -447,8 +448,6 @@ export class ControlServer {
         ...(p.path ? { path: p.path } : {}),
         ...(p.url ? { url: p.url } : {}),
       })),
-      // Só nome e tipo: quem não está ligado não recebe caminho, endereço nem conteúdo.
-      unlinked: hood.others.map((p) => ({ title: p.title, kind: p.kind })),
       pendingForMe: [...this.pending.values()].filter((a) => a.to.id === hood.me.id).map((a) => ({ id: a.id, from: a.from.title })),
     };
   }

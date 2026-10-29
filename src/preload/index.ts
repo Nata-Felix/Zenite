@@ -44,6 +44,8 @@ const api: OApi = {
     remove: (id) => ipcRenderer.invoke("workspaces:remove", id),
     setActive: (id) => ipcRenderer.invoke("workspaces:setActive", id),
     pickDirectory: (start) => ipcRenderer.invoke("workspaces:pickDirectory", start),
+    pathGrants: (id) => ipcRenderer.invoke("workspaces:pathGrants", id),
+    revokePathGrant: (id, entry) => ipcRenderer.invoke("workspaces:revokePathGrant", id, entry),
     onChanged: (listener) => subscribe("index:changed", listener),
     setSettings: (settings) => ipcRenderer.invoke("settings:set", settings),
   },

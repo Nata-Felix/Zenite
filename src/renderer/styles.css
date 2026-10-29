@@ -1971,6 +1971,25 @@ button {
   color: var(--text);
 }
 
+.path-grant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.path-grant span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.path-grant small {
+  color: var(--faint);
+  font-size: 11.5px;
+  overflow-wrap: anywhere;
+}
+
 .proposals-dialog {
   width: 600px;
 }

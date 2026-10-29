@@ -187,10 +187,9 @@ if (process.platform === "win32") {
     assert.match(r.stdout, /"Codex" \[terminal\] \(ativo\)/);
     assert.match(r.stdout, /"Plano" \[nota\]/);
     assert.match(r.stdout, /"Logo" \[imagem\] \(.*logo\.png\)/);
-    // O que não está ligado aparece só com nome e tipo, sem caminho.
-    const [, unlinked] = r.stdout.split("sem ligação");
-    assert.match(unlinked, /"Solto" \[terminal\]/);
-    assert.match(unlinked, /"Foto" \[imagem\]/);
+    // O que não está ligado nem aparece: nem nome, nem tipo, nem caminho.
+    assert.doesNotMatch(r.stdout, /sem ligação/);
+    assert.doesNotMatch(r.stdout, /"Solto"|"Foto"|"Segredo"/);
     assert.doesNotMatch(r.stdout, /foto\.png/);
   });
 

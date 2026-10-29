@@ -266,9 +266,12 @@ login que já existe no seu PC; "+ Nova conta…" cria uma conta com pasta próp
 
 ## Regra de acesso
 
-Um terminal só **usa** o que está ligado a ele por uma linha. O resto do canvas aparece no
-`zn list` só com nome e tipo: o agente sabe que existe, mas o `zn` recusa ler, editar ou
-interagir, e nunca mostra o caminho do arquivo de uma imagem/vídeo sem ligação.
+Um terminal só **usa** e só **vê** o que está ligado a ele por uma linha. O `zn list` não
+mostra o resto do canvas, e o `zn` recusa ler, editar ou interagir com um elemento sem ligação.
+Exceção: o Sol alcança o canvas dele e os universos da mesma galáxia. Arquivos e pastas que o
+Sol cria precisam ficar dentro da pasta da galáxia ou de um universo dela. Fora disso, o Zênite
+pergunta (Permitir/Recusar); com **Lembrar**, a outra galáxia fica liberada para o Sol desta, e a
+liberação aparece em **Editar galáxia**, onde dá para revogar.
 
 Limite honesto: um agente com acesso ao terminal consegue ler arquivos do disco por conta
 própria. A regra é garantida para tudo que passa pelo `zn`, e a skill instrui o agente a

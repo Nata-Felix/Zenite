@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { DEFAULT_COPY_PATTERNS, type WorkspaceMeta } from "../../shared/types";
+import { useEffect, useState } from "react";
+import { DEFAULT_COPY_PATTERNS, type PathGrantInfo, type WorkspaceMeta } from "../../shared/types";
 import { T } from "../vocab";
 
 interface Props {
@@ -13,6 +13,12 @@ export function WorkspaceDialog({ initial, onSubmit, onCancel }: Props) {
   const [dir, setDir] = useState(initial?.dir ?? "");
   const [mode, setMode] = useState<"auto" | "suggest">(initial?.agentCommits ?? "auto");
   const [patterns, setPatterns] = useState((initial?.copyPatterns ?? DEFAULT_COPY_PATTERNS).join("\n"));
+  const [grants, setGrants] = useState<PathGrantInfo[]>([]);
+  useEffect(() => {
+    if (initial) void window.o.workspaces.pathGrants(initial.id).then(setGrants);
+  }, [initial]);
+  // Revogar vale na hora, sem esperar o Salvar: é uma permissão, não um campo do formulário.
+  const revoke = async (entry: string) => setGrants(await window.o.workspaces.revokePathGrant(initial!.id, entry));
 
   const browse = async () => {
     const picked = await window.o.workspaces.pickDirectory();
@@ -70,6 +76,23 @@ export function WorkspaceDialog({ initial, onSubmit, onCancel }: Props) {
             mudar a porta ou o banco de um universo sem afetar os outros.
           </span>
         </label>
+        {grants.length > 0 && (
+          <fieldset className="radio-group">
+            <legend>O Sol desta galáxia pode ligar, sem perguntar</legend>
+            {grants.map((g) => (
+              <div key={g.entry} className="path-grant">
+                <span>
+                  <strong>{g.label}</strong>
+                  {g.detail && <small>{g.detail}</small>}
+                </span>
+                <button type="button" className="ghost" onClick={() => void revoke(g.entry)}>
+                  Revogar
+                </button>
+              </div>
+            ))}
+            <span className="field-hint">Liberado no pop-up com "Lembrar". Depois de revogar, o Zênite volta a perguntar. O que já está ligado no canvas continua até você apagar a ligação.</span>
+          </fieldset>
+        )}
         <div className="dialog-actions">
           <button type="button" className="ghost" onClick={onCancel}>
             Cancelar

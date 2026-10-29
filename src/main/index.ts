@@ -26,6 +26,7 @@ import { controlAddress, installCliShims, ZENITE_SKILL } from "./cliInstall";
 import { SkillLibrary, type SkillTarget } from "./skills";
 import { ControlServer } from "./controlServer";
 import { ElementService } from "./elements";
+import { describeGrants, ownersOf, PathGrants, workspaceGrant } from "./workspacePaths";
 import { CanvasIntegrations, readCanvasSkill } from "./canvasIntegrations";
 import { FlowActions } from "./flowActions";
 import { prepareCodeRuntime } from "./codeRuntime";
@@ -135,6 +136,21 @@ app.whenReady().then(async () => {
     suns.restore(grants, (canvasId, terminalId) => !!store.loadCanvas(canvasId)?.nodes.some((n) => n.id === terminalId && n.kind === "terminal"));
   } catch { /* primeira vez ou registro ilegível: começa sem Sol */ }
   app.on("will-quit", () => saveSuns(suns.entries()));
+  // Pastas fora da galáxia que a pessoa liberou para o Sol dela: mesmo cuidado do registro do Sol
+  // (cifrado e só gravado pelo processo principal), para um agente não se autorizar sozinho.
+  const grantsFile = join(dataDir, "sol-caminhos.bin");
+  const saveGrants = (grants: Record<string, string[]>) => {
+    try {
+      const text = JSON.stringify(grants);
+      writeFileSync(grantsFile, safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(text) : Buffer.from(text));
+    } catch { /* sem disco: a liberação vale só nesta sessão */ }
+  };
+  let savedGrants: Record<string, string[]> = {};
+  try {
+    const raw = readFileSync(grantsFile);
+    savedGrants = JSON.parse(safeStorage.isEncryptionAvailable() ? safeStorage.decryptString(raw) : raw.toString("utf8")) as Record<string, string[]>;
+  } catch { /* primeira vez ou registro ilegível: nada liberado */ }
+  const pathGrants = new PathGrants(savedGrants, saveGrants);
   store.protectRuntimeState();
   const isMainUI = (event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) => {
     try {
@@ -199,6 +215,25 @@ app.whenReady().then(async () => {
     ops: (request) => win?.webContents.send("canvas:ops", request),
     ui: (request) => win?.webContents.send("canvas:ui", request),
     killTerminal: (id) => ptys.kill(id),
+    pathGrants,
+    // Sol pediu caminho fora da galáxia: a pessoa decide e pode liberar o outro workspace de vez.
+    authorizePaths: async (canvasId, paths) => {
+      const ws = store.place(canvasId)?.workspace;
+      if (!ws || !win || win.isDestroyed()) return false;
+      const owners = [...new Map(paths.flatMap((p) => ownersOf(store, p, ws.id)).map((w) => [w.id, w])).values()];
+      const loose = paths.filter((p) => !ownersOf(store, p, ws.id).length);
+      const names = owners.map((w) => `"${w.name}"`).join(", ");
+      const title = owners.length ? `Ligar pasta do workspace ${names}?` : "Ligar pasta fora deste workspace?";
+      const answer = await ask({
+        title,
+        message: `O Sol de "${ws.name}" quer ligar ${paths.length > 1 ? "estes caminhos" : "este caminho"}, que fica fora deste workspace:`,
+        detail: `${paths.join("\n")}${owners.length ? `\n\nPertence a: ${names}.` : ""}\n\nO agente vai poder ler e mexer no que for ligado.`,
+        cancel: "Recusar", ok: "Permitir",
+        checkbox: owners.length && !loose.length ? `Lembrar: o Sol de "${ws.name}" pode ligar pastas de ${names}` : `Lembrar ${paths.length > 1 ? "estes caminhos" : "este caminho"} para o Sol de "${ws.name}"`,
+      });
+      if (answer.ok && answer.checked) pathGrants.add(ws.id, [...owners.map((w) => workspaceGrant(w.id)), ...loose]);
+      return answer.ok;
+    },
     // Recrutado num canvas fora da tela: já roda sem tela; ao abrir a galáxia, a tela pega a sessão.
     startTerminal: (t) => {
       terminalAccount.set(t.id, t.account);
@@ -1277,12 +1312,22 @@ app.whenReady().then(async () => {
   ipcMain.handle("proposals:discard", (_e, wsId: string, pid: string) => store.removeProposal(wsId, pid));
   ipcMain.handle("workspaces:create", (_e, name: string, dir: string) => store.create(name, dir));
   ipcMain.handle("workspaces:update", (_e, id: string, changes: Partial<Omit<WorkspaceMeta, "id">>) => store.update(id, changes));
+  ipcMain.handle("workspaces:pathGrants", (e, id: string) => {
+    requireMainUI(e);
+    return describeGrants(store, id, pathGrants);
+  });
+  ipcMain.handle("workspaces:revokePathGrant", (e, id: string, entry: string) => {
+    requireMainUI(e);
+    pathGrants.revoke(id, entry);
+    return describeGrants(store, id, pathGrants);
+  });
   ipcMain.handle("workspaces:remove", async (_e, id: string) => {
     const ws = store.list().workspaces.find((w) => w.id === id);
     if (!ws || store.list().workspaces.length <= 1) return store.list();
     const canvasIds = [id, ...(ws.universes ?? []).map((u) => u.id)];
     const nodes = canvasIds.flatMap((c) => store.loadCanvas(c)?.nodes ?? []);
     const { index, terminalIds } = store.remove(id);
+    pathGrants.forget(id);
     await endTerminals(terminalIds);
     nodes.forEach((n) => elements.cleanup(n));
     // As cópias dos universos saem; as branches ficam no git com o trabalho feito.

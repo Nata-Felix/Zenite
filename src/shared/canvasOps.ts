@@ -142,6 +142,21 @@ export interface OpsContext {
   callerId?: string;
   newId(): string;
   seed(): number;
+  /**
+   * Caminho de disco que o Sol quer pôr num arquivo/pasta pode ser usado? Quem chama decide
+   * (o processo principal resolve junções e compara com as pastas da galáxia). Ausente = sem limite.
+   */
+  allowPath?(path: string): boolean;
+}
+
+export const OUTSIDE_WORKSPACE = "Caminho fora deste workspace. Peça ao usuário para ligar a pasta manualmente.";
+
+/** Recusa o lote se algum arquivo/pasta criado ou alterado aponta para fora das pastas permitidas. */
+export function guardPaths(ops: CanvasOp[], allowPath: (path: string) => boolean): void {
+  ops.forEach((op, i) => {
+    const path = op.op === "create" ? ((op.kind === "file" || op.kind === "folder") && op.element?.path) : op.op === "update" ? op.element?.path : undefined;
+    if (typeof path === "string" && path && !allowPath(path)) throw new CanvasOpError(`${OUTSIDE_WORKSPACE} (${path})`, i);
+  });
 }
 
 const GAP = 80;
@@ -155,6 +170,7 @@ export function labelOf(n: CanvasNode): string {
 const pieceOf = (n: CanvasNode): Piece => ({ id: n.id, x: n.x, y: n.y, w: n.width, h: n.height, ...(n.draw ? { draw: n.draw } : {}) });
 
 export function applyCanvasOps(state: CanvasState, ops: CanvasOp[], ctx: OpsContext): OpsOutcome {
+  if (ctx.allowPath) guardPaths(ops, ctx.allowPath);
   let nodes = state.nodes.map((n) => ({ ...n }));
   let edges = state.edges.map((e) => ({ ...e }));
   const results: OpResult[] = [];
