@@ -84,7 +84,7 @@ export const SLASH: Partial<Record<AgentKind, { status?: string; usage?: string;
 /** Marcadores de "esta opção está selecionada" nos menus dos CLIs. */
 const MARK = /^\s*([›>❯▶●])\s/;
 const ITEM = /^(\s*[›>❯▶●]\s+|\s{2,})\S/;
-const FOOTER = /(enter\s+(select|confirm|default)|↑\/↓|esc\s+(back|go back|to cancel|close))/i;
+const FOOTER = /(enter\s+(?:to\s+)?(select|confirm|default)|↑\/↓|esc\s+(back|go back|to cancel|close))/i;
 
 export interface MenuItem {
   text: string;

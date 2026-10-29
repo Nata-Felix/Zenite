@@ -145,6 +145,33 @@ function fakeTerm(screens, onKey) {
   };
 }
 
+for (const footer of ["Enter to confirm", "Enter to select", "Press Enter to confirm"]) {
+  test(`confiança do Claude: ${footer} reconhece o menu e sai de No, exit antes do Enter`, async () => {
+    const screen = [
+      "Do you trust the files in this folder?",
+      "  1. Yes, I trust this folder",
+      "❯ 2. No, exit",
+      footer,
+    ].join("\n");
+    const menu = m.parseMenu(screen);
+    assert.deepEqual(menu?.items, [
+      { text: "1. Yes, I trust this folder", selected: false },
+      { text: "2. No, exit", selected: true },
+    ]);
+    const t = fakeTerm(screen, (key, self) => {
+      if (key === "\x1b[A") self.set(screen.replace("  1.", "❯ 1.").replace("❯ 2.", "  2."));
+    });
+    await m.pick(t, "Yes, I trust this folder");
+    assert.deepEqual(t.keys, ["\x1b[A", "\r"]);
+  });
+}
+
+test("confiança do Claude: não envia Enter se a seleção não mudou para Yes", async () => {
+  const t = fakeTerm("Do you trust the files in this folder?\n  1. Yes, I trust this folder\n❯ 2. No, exit\nEnter to confirm");
+  await assert.rejects(m.pick(t, "Yes, I trust this folder"), /Não consegui parar/);
+  assert.deepEqual(t.keys, ["\x1b[A"]);
+});
+
 test("pick anda com as setas até a opção e confirma", async () => {
   const t = fakeTerm(CODEX_MODEL, (d, self) => {
     if (d === "\x1b[B") self.set(CODEX_MODEL.replace("› 2.", "  2.").replace("  3. GPT-6-Sol", "› 3. GPT-6-Sol"));
