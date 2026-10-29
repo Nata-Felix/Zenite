@@ -59,9 +59,9 @@ fica espalhado pela área de trabalho.
     <td width="50%" valign="top">
       <img src="docs/images/sol-pedido.jpg" alt="Terminal do Sol recebendo um pedido">
       <h3>Sol, o orquestrador</h3>
-      Promova um terminal a Sol e ele passa a enxergar o canvas inteiro: cria elementos,
-      recruta agentes, liga, desenha, organiza e acompanha o andamento de cada um. Tudo que
-      ele faz entra no seu Ctrl+Z.
+      Promova um terminal a Sol e ele cuida do macro: divide o pedido em tarefas, delega,
+      acompanha e valida no fim. Ele reaproveita quem já está no canvas antes de recrutar e
+      pergunta a você quando nenhum agente serve. Tudo que ele muda no canvas entra no seu Ctrl+Z.
     </td>
   </tr>
   <tr>
@@ -111,6 +111,9 @@ fica espalhado pela área de trabalho.
 
 ### E também
 
+- **Torre de controle com roteiro fixo**: você define em cada rota quando ela vale e quem
+  executa (agente, conta, modelo e esforço, com outro agente se faltar limite). Ligada ao Sol,
+  ela vira o caminho por onde ele delega, em vez de ele decidir a cada vez.
 - **Universos paralelos**: experimente numa cópia do projeto em outra branch, sem tocar a Origem.
 - **Contas separadas por terminal**: vários logins do mesmo agente, cada um no seu perfil.
 - **Skills e serviços**: ligue instruções (`SKILL.md`), APIs HTTP e servidores MCP aos agentes.
@@ -126,7 +129,9 @@ O Zênite não substitui o seu agente: ele roda o CLI que você já usa, com a s
 ## Privacidade e segurança
 
 - **Tudo roda no seu computador.** Projetos, canvas, notas e tabelas ficam na sua pasta de dados.
-- **Cada agente só usa o que está ligado a ele.** O resto do canvas aparece, mas não pode ser lido.
+- **Cada agente só vê e usa o que está ligado a ele.** O resto do canvas, e as outras galáxias, nem aparecem.
+- **Cada galáxia fica no seu projeto.** Se o Sol tentar ligar uma pasta de fora, o Zênite pergunta
+  antes; a liberação lembrada aparece em **Editar galáxia**, onde dá para revogar.
 - **Você escolhe as permissões dos agentes**: sempre perguntar, sandbox ou controle total.
 - **Chaves e tokens** ficam criptografados pelo Windows, fora do canvas e do Git.
 - **Isolamento opcional** em Docker para agentes que você não quer soltos no disco.
@@ -134,6 +139,11 @@ O Zênite não substitui o seu agente: ele roda o CLI que você já usa, com a s
 Detalhes na [política de segurança](SECURITY.md).
 
 ## Primeiros passos
+
+**Antes de começar:** Windows 10 ou 11 e o CLI de pelo menos um agente instalado e com login
+feito (por exemplo, `claude` ou `codex` funcionando num terminal). O Git é recomendado, e o Zênite
+oferece instalá-lo se faltar. O Docker só é necessário para o ambiente isolado, que é opcional;
+o app também o instala pelas Configurações.
 
 1. **Baixe e instale** o `Zenite-Instalador-<versão>.exe` em [Releases](https://github.com/Nata-Felix/Zenite/releases/latest).
 2. **Crie uma galáxia** apontando para a pasta do seu projeto.
@@ -153,6 +163,23 @@ zn recruit "Testes" --agent codex        # (Sol) criar um novo agente ligado
 
 A lista completa está no [guia](docs/guia.md#como-os-agentes-conversam-comando-zn).
 
+## Perguntas frequentes
+
+**Custa alguma coisa?** O Zênite é gratuito e de código aberto. Os agentes usam as suas próprias
+assinaturas ou chaves (Claude, ChatGPT, Gemini, OpenRouter…); o Zênite não cobra nada por cima.
+
+**Funciona no Mac ou no Linux?** Hoje só no Windows 10 e 11.
+
+**Meus dados saem do computador?** O Zênite não tem servidor próprio; ele só consulta o GitHub
+para procurar atualizações. O que sai é o que os agentes mandam para os provedores deles, como já
+acontece quando você os usa no terminal.
+
+**E se um agente estourar o limite de uso?** Cada terminal mostra o uso da conta dele, o `zn ask`
+avisa quem ainda tem folga, e a Torre e a Gravidade podem passar o trabalho para outra conta.
+
+**Preciso saber programar?** Não para usar: canvas, notas, tabelas e o Sol funcionam com pedidos
+em português. Os astros de código e o comando `zn` ficam disponíveis para quem quiser ir além.
+
 ## Para desenvolvedores
 
 Pré-requisito: [Node.js](https://nodejs.org) 22 ou mais novo.
@@ -167,8 +194,19 @@ npm start
 | `npm run typecheck` | Verifica os tipos |
 | `npm test` | Testes unitários |
 | `npm run build` | Gera o app em `out/` |
-| `npm run dist:win` | Gera o instalador em `dist/` |
+| `npm run dist:win` | Gera o instalador em `dist/` (o instalador visual exige o [SDK do .NET](https://aka.ms/dotnet/download)) |
 | `npm run security:check` | Confere se nada privado vai para o repositório |
+
+### Publicar uma versão
+
+1. Suba a versão: `npm version X.Y.Z --no-git-tag-version` (atualiza `package.json` e `package-lock.json`).
+2. Escreva as novidades em [`build/release-notes.md`](build/release-notes.md); elas viram o texto do release.
+3. Rode `npm run security:check`, `npm run typecheck` e `npm test`, e commite como `Versão X.Y.Z`.
+4. Crie e envie a tag: `git tag vX.Y.Z` e `git push origin main vX.Y.Z`.
+
+O workflow [`release-win.yml`](.github/workflows/release-win.yml) repete as checagens, compila o
+instalador e publica o release com os arquivos que o app instalado usa para se atualizar. Confira
+no release se o instalador, o `latest.yml` e o `app-update.json` estão lá.
 
 Organização do código, dados, atalhos e publicação de versões estão no
 [guia completo](docs/guia.md); os testes, no [catálogo de testes](tests/README.md); a
