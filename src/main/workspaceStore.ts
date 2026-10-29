@@ -81,6 +81,7 @@ export class WorkspaceStore {
       if (changes.name !== undefined) ws.name = changes.name.trim() || ws.name;
       if (changes.dir !== undefined) ws.dir = changes.dir.trim();
       if (changes.agentCommits !== undefined) ws.agentCommits = changes.agentCommits;
+      if (typeof changes.hue === "number" && Number.isFinite(changes.hue)) ws.hue = ((Math.round(changes.hue) % 360) + 360) % 360;
       if (changes.copyPatterns !== undefined) ws.copyPatterns = changes.copyPatterns.map((p) => p.trim()).filter(Boolean);
     }
     return this.writeIndex(index);

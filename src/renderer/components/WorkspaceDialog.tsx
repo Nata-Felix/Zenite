@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
 import { DEFAULT_COPY_PATTERNS, type PathGrantInfo, type WorkspaceMeta } from "../../shared/types";
+import { Check } from "lucide-react";
 import { T } from "../vocab";
+import { GalaxyIcon } from "./GalaxyIcon";
+
+const HUE_PRESETS = [0, 30, 50, 120, 170, 200, 230, 270, 310];
 
 interface Props {
   initial?: WorkspaceMeta;
-  onSubmit(name: string, dir: string, copyPatterns: string[], agentCommits: "auto" | "suggest"): void;
+  /** Cor atual da galáxia (escolhida ou automática). */
+  hue: number;
+  onSubmit(name: string, dir: string, copyPatterns: string[], agentCommits: "auto" | "suggest", hue: number): void;
   onCancel(): void;
 }
 
-export function WorkspaceDialog({ initial, onSubmit, onCancel }: Props) {
+export function WorkspaceDialog({ initial, hue: initialHue, onSubmit, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
+  const [hue, setHue] = useState(initialHue);
   const [dir, setDir] = useState(initial?.dir ?? "");
   const [mode, setMode] = useState<"auto" | "suggest">(initial?.agentCommits ?? "auto");
   const [patterns, setPatterns] = useState((initial?.copyPatterns ?? DEFAULT_COPY_PATTERNS).join("\n"));
@@ -36,7 +43,7 @@ export function WorkspaceDialog({ initial, onSubmit, onCancel }: Props) {
         onKeyDown={(e) => e.key === "Escape" && onCancel()}
         onSubmit={(e) => {
           e.preventDefault();
-          onSubmit(name, dir, patterns.split("\n"), mode);
+          onSubmit(name, dir, patterns.split("\n"), mode, hue);
         }}
       >
         <h2>{initial ? T.editGalaxy : T.newGalaxy}</h2>
@@ -53,6 +60,16 @@ export function WorkspaceDialog({ initial, onSubmit, onCancel }: Props) {
             </button>
           </div>
         </label>
+        <fieldset className="terminal-color-picker galaxy-color-picker">
+          <legend>Cor da galáxia</legend>
+          <GalaxyIcon hue={hue} seed={initial?.id ?? "nova"} />
+          {HUE_PRESETS.map((h) => (
+            <button type="button" key={h} className={`swatch${hue === h ? " on" : ""}`} style={{ background: `hsl(${h} 80% 55%)` }} aria-label={`Matiz ${h}°`} aria-pressed={hue === h} onClick={() => setHue(h)}>
+              {hue === h && <Check size={13} color="#111317" />}
+            </button>
+          ))}
+          <input type="range" className="hue-slider" min={0} max={359} value={hue} title="Ajuste fino da cor" aria-label="Ajuste fino da cor" onChange={(e) => setHue(Number(e.target.value))} />
+        </fieldset>
         <fieldset className="radio-group">
           <legend>Commits dos agentes</legend>
           <label className="toggle">

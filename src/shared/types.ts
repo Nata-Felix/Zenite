@@ -497,6 +497,8 @@ export interface WorkspaceMeta {
   copyPatterns?: string[];
   /** auto: agentes commitam com `zn commit`; suggest: só deixam uma proposta para o usuário. */
   agentCommits?: "auto" | "suggest";
+  /** Matiz (0–359) da mini galáxia na barra lateral; ausente = cor automática pela posição. */
+  hue?: number;
   /** Propostas de commit deixadas por agentes no modo "suggest". */
   proposals?: CommitProposal[];
 }
