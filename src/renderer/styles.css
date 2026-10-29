@@ -312,6 +312,33 @@ button {
   border: 1px solid hsl(var(--hue) var(--av-border));
 }
 
+/* Mini galáxia: disco de "espaço" tingido pela cor, braços espirais e a inicial no núcleo. */
+.workspace-avatar.galaxy {
+  border-radius: 50%;
+  border: none;
+  background: radial-gradient(circle at 50% 50%, hsl(var(--hue) 70% 32%) 0%, hsl(var(--hue) 55% 16%) 55%, hsl(var(--hue) 45% 9%) 100%);
+}
+.galaxy-arms {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(var(--spin));
+  overflow: visible;
+}
+.galaxy-arms path { fill: none; stroke-linecap: round; }
+.galaxy-arms .arm-glow { stroke: hsl(var(--hue) 85% 60% / 0.35); stroke-width: 2.6; }
+.galaxy-arms .arm { stroke: hsl(var(--hue) 90% 75%); stroke-width: 0.9; }
+.galaxy-arms .core { fill: hsl(var(--hue) 100% 88% / 0.55); }
+.galaxy-arms .star { fill: #fff; opacity: 0.7; }
+.galaxy-letter {
+  position: relative;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 3px hsl(var(--hue) 60% 10%), 0 0 6px hsl(var(--hue) 60% 10%);
+}
+
 .workspace-avatar.add {
   color: var(--muted);
   background: transparent;

@@ -74,11 +74,21 @@ export function Sidebar({ index, collapsed, onToggle, onChange }: Props) {
       )}
 
       <ul className="workspace-list">
-        {index.workspaces.map((w) => (
+        {index.workspaces.map((w, i) => (
           <li key={w.id} className={w.id === index.activeId ? "active" : ""}>
             <button className="workspace-item" title={`${w.name}${w.dir ? `\n${w.dir}` : ""}`} onClick={() => activate(w)}>
-              <span className="workspace-avatar" style={{ "--hue": hueFor(w.id) } as React.CSSProperties}>
-                {initials(w.name)}
+              <span className="workspace-avatar galaxy" style={{ "--hue": hueFor(i), "--spin": `${spinFor(w.id)}deg` } as React.CSSProperties}>
+                <svg className="galaxy-arms" viewBox="-13 -13 26 26" aria-hidden="true">
+                  {[0, 180].map((r) => (
+                    <g key={r} transform={`rotate(${r})`}>
+                      <path className="arm-glow" d={ARM} />
+                      <path className="arm" d={ARM} />
+                    </g>
+                  ))}
+                  <circle className="core" r="2.6" />
+                  {STARS.map(([x, y], k) => <circle key={k} className="star" cx={x} cy={y} r="0.45" />)}
+                </svg>
+                <span className="galaxy-letter">{initial(w.name)}</span>
                 {waitingIn(w.id) > 0 && (
                   <span className="attention-count" title={plural(waitingIn(w.id), "terminal esperando você", "terminais esperando você")}>
                     {waitingIn(w.id)}
@@ -161,15 +171,29 @@ const THEME_LABEL: Record<ThemePref, string> = { system: "Tema do sistema", ligh
 const THEME_ICON: Record<ThemePref, React.ReactNode> = { system: <Monitor size={14} />, light: <Sun size={14} />, dark: <Moon size={14} /> };
 const NEXT_THEME: Record<ThemePref, ThemePref> = { system: "light", light: "dark", dark: "system" };
 
-function initials(name: string): string {
-  const words = name.trim().split(/[\s\-_]+/).filter(Boolean);
-  const letters = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "?").slice(0, 2);
-  return letters.toUpperCase();
+/** Primeira letra do nome, pulando numeração e pontuação ("01 · Canvas vivo" → "C"). */
+function initial(name: string): string {
+  const ch = name.match(/\p{L}/u)?.[0] ?? name.match(/\p{N}/u)?.[0] ?? "?";
+  return ch.toLocaleUpperCase();
 }
 
-/** Cor estável por workspace, derivada do id. */
-function hueFor(id: string): number {
+/** Cor pela posição na lista: o ângulo áureo espalha os tons, então vizinhas nunca ficam parecidas. */
+function hueFor(position: number): number {
+  return Math.round((position * 137.508 + 210) % 360);
+}
+
+/** Giro estável por galáxia, derivado do id, para os braços não ficarem todos iguais. */
+function spinFor(id: string): number {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
   return h;
 }
+
+/** Braço espiral (logarítmica aproximada) do centro até a borda. */
+const ARM = Array.from({ length: 25 }, (_, i) => {
+  const t = (i / 24) * 1.7 * Math.PI;
+  const r = 1.4 + 10 * (i / 24) ** 1.2;
+  return `${i ? "L" : "M"}${(r * Math.cos(t)).toFixed(2)} ${(r * Math.sin(t)).toFixed(2)}`;
+}).join("");
+
+const STARS: [number, number][] = [[-8, -6], [7, -8], [9, 5], [-6, 9], [-10, 2], [3, 10]];
