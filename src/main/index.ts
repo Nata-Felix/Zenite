@@ -1017,7 +1017,9 @@ app.whenReady().then(async () => {
       if (solWelcomes.get(req.id) !== session || !ptys.has(req.id) || !terminalSpec(req.id)?.sun || Date.now() - started > 120_000) return;
       const q = ptys.quiet(req.id);
       const screen = (await ptys.snapshot(req.id, 35)) ?? "";
-      if (q && q.open >= 6000 && q.idle >= 1200 && ptys.acceptsPaste(req.id) && !looksBusy(screen) && !/Trust this folder\?|Enable full access\?|enter select|Press enter to confirm/i.test(screen)) {
+      // Qualquer menu na tela (confiar na pasta, atualização…) segura as boas-vindas: o Enter delas
+      // escolheria a opção marcada ("No, exit" fechava o Claude).
+      if (q && q.open >= 6000 && q.idle >= 1200 && ptys.acceptsPaste(req.id) && !looksBusy(screen) && !waitingForChoice(screen, !!parseMenu(screen))) {
         if (!terminalSpec(req.id)?.sun) return;
         solWelcomes.delete(req.id);
         await control?.deliver({ id: req.id, title: terminalSpec(req.id)?.title ?? "Sol" }, solWelcomeMessage(settings().agentPermissions)).catch((error) => attention.request(req.id, String(error)));
@@ -1027,8 +1029,28 @@ app.whenReady().then(async () => {
     };
     setTimeout(() => void tick(), 1000);
   };
+  /**
+   * Menus de abertura respondidos sozinhos no primeiro minuto e meio: confiar na pasta (a pasta é a
+   * do card, escolhida pela pessoa) e pular o aviso de atualização do Codex (não instala nada).
+   */
+  const answerStartupPrompts = (req: CreatePtyRequest) => {
+    if (!["codex", "claude", "antigravity"].includes(agentOf(req.command, req.provider))) return;
+    const started = Date.now();
+    const term = { write: (d: string) => ptys.write(req.id, d), snapshot: (n?: number) => ptys.snapshot(req.id, n ?? 80), quiet: () => ptys.quiet(req.id) };
+    const tick = async () => {
+      if (!ptys.has(req.id) || Date.now() - started > 90_000) return;
+      const screen = (await ptys.snapshot(req.id, 40)) ?? "";
+      const items = parseMenu(screen)?.items.map((i) => i.text.replace(/^\d+\.\s*/, "")) ?? [];
+      const answer = /trust/i.test(screen) ? items.find((t) => /^yes\b.*(trust|continue)|^yes, continue/i.test(t))
+        : /update available/i.test(screen) ? items.find((t) => /^skip$/i.test(t)) : undefined;
+      if (answer) await pick(term, answer).catch(() => {});
+      setTimeout(() => void tick(), 700);
+    };
+    setTimeout(() => void tick(), 800);
+  };
   const createTerminal = (req: CreatePtyRequest) => {
     const result = ptys.create(agentRequest(req));
+    if (result.ok && !result.reused) answerStartupPrompts(req);
     if (result.ok && !result.reused) welcomeSol(req);
     return result;
   };
