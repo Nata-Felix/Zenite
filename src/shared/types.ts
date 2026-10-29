@@ -13,6 +13,8 @@ export interface TerminalAppearance {
   view?: "terminal" | "chat";
   /** Tema da aba Chat, escolhido pela pessoa. */
   chatTheme?: ChatTheme;
+  /** Tamanho da letra da aba Chat (px); ausente = o padrão. Não muda o terminal. */
+  chatFontSize?: number;
 }
 
 export type ChatTheme = "sol" | "mercurio" | "venus" | "terra" | "marte" | "jupiter" | "saturno" | "urano" | "netuno" | "sirius" | "vega" | "betelgeuse";

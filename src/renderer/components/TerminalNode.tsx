@@ -46,7 +46,10 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
       <Handle type="target" position={Position.Left} />
       <div className="terminal-header drag-handle">
         {/* Agentes com chat: o astro do tema fica no topo do card e troca o tema (nas duas abas). */}
-        {chatAble ? <ThemePicker theme={theme} onTheme={(t) => actions.terminalChat(id, { chatTheme: t })} /> : (
+        {chatAble ? (
+          <ThemePicker theme={theme} onTheme={(t) => actions.terminalChat(id, { chatTheme: t })}
+            fontSize={terminal.appearance?.chatFontSize} onFontSize={(size) => actions.terminalChat(id, { chatFontSize: size })} />
+        ) : (
           <span className="agent-chip">
             <preset.icon size={13} />
           </span>
@@ -97,7 +100,7 @@ function TerminalNodeImpl({ id, data, selected }: NodeProps<CanvasFlowNode>) {
         <ScreenFrame>
           <TerminalView spec={terminal} reloadVersion={data.reloadVersion} onAliveChange={setAlive} onLoadingChange={(loading) => actions.terminalLoading(id, loading)} />
         </ScreenFrame>
-        {chat && <ChatView id={id} kind={preset.kind} agentName={preset.kind === "openrouter" ? "Claude" : preset.title.replace(/ Code$/, "")} theme={theme} />}
+        {chat && <ChatView id={id} kind={preset.kind} agentName={preset.kind === "openrouter" ? "Claude" : preset.title.replace(/ Code$/, "")} theme={theme} fontSize={terminal.appearance?.chatFontSize} />}
       </div>
       {/* Com Alt apertado, cobre o terminal: arrastar de qualquer ponto move o elemento. */}
       <div className="move-shield drag-handle" />

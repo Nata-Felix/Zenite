@@ -203,8 +203,17 @@ function OptionText({ text }: { text: string }) {
   return <>{text.replace(rec, "").replace(/\s{2,}/g, " ").trim()}<small className="chat-rec">Recomendado</small></>;
 }
 
-/** Tema escolhido no astro do topo do card: planetas e estrelas, com a cor de cada um. */
-export function ThemePicker({ theme, onTheme }: { theme: ChatTheme; onTheme: (t: ChatTheme) => void }) {
+/** Letra do chat: padrão e limites (A− / A+ no menu do astro). */
+export const CHAT_FONT = { base: 13.5, min: 11, max: 20 };
+
+/** Tema escolhido no astro do topo do card: planetas e estrelas, com a cor de cada um, e o tamanho da letra do chat. */
+export function ThemePicker({ theme, onTheme, fontSize, onFontSize }: { theme: ChatTheme; onTheme: (t: ChatTheme) => void; fontSize?: number; onFontSize: (size: number | undefined) => void }) {
+  const size = fontSize ?? CHAT_FONT.base;
+  // De 1 em 1 px a partir do padrão (13.5 → 14.5…), sem passar dos limites.
+  const step = (d: number) => {
+    const next = Math.min(CHAT_FONT.max, Math.max(CHAT_FONT.min, size + d));
+    onFontSize(next === CHAT_FONT.base ? undefined : next);
+  };
   const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!open) return;
@@ -219,6 +228,17 @@ export function ThemePicker({ theme, onTheme }: { theme: ChatTheme; onTheme: (t:
       </button>
       {open && (
         <div className="chat-menu theme" role="menu" aria-label="Tema do chat">
+          {/* O menu fica aberto ao mudar a letra: dá para ir ajustando e ver o chat mudar. */}
+          <div className="chat-font-row">
+            <span className="chat-menu-title">Tamanho da letra</span>
+            <div className="chat-font-controls" role="group" aria-label="Tamanho da letra do chat">
+              <button title="Diminuir a letra" aria-label="Diminuir a letra" disabled={size <= CHAT_FONT.min} onClick={() => step(-1)}>A−</button>
+              <button className="chat-font-size" title="Voltar ao tamanho padrão" aria-label={`Tamanho ${size} px; clique para voltar ao padrão`} onClick={() => onFontSize(undefined)}>
+                {Math.round((size / CHAT_FONT.base) * 100)}%
+              </button>
+              <button title="Aumentar a letra" aria-label="Aumentar a letra" disabled={size >= CHAT_FONT.max} onClick={() => step(1)}>A+</button>
+            </div>
+          </div>
           {(["Sistema solar", "Estrelas"] as const).map((group) => (
             <div key={group} className="chat-theme-group">
               <span className="chat-menu-title">{group}</span>
@@ -242,7 +262,7 @@ export function ThemePicker({ theme, onTheme }: { theme: ChatTheme; onTheme: (t:
  * Aba Chat do terminal: a mesma sessão do CLI, mostrada como conversa. Lê o arquivo de sessão
  * (main/chatTranscript) e envia pelo mesmo caminho da caixa de mensagem (colar no terminal).
  */
-export function ChatView({ id, kind, agentName, theme }: { id: string; kind: AgentKind; agentName: string; theme: ChatTheme }) {
+export function ChatView({ id, kind, agentName, theme, fontSize }: { id: string; kind: AgentKind; agentName: string; theme: ChatTheme; fontSize?: number }) {
   const [snap, setSnap] = useState<ChatSnapshot | null>(null);
   const [text, setText] = useState("");
   const [files, setFiles] = useState<Attachment[]>([]);
@@ -380,7 +400,9 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
       onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void fromFiles(e.dataTransfer.files); }}>
       <div className="chat-backdrop" aria-hidden />
 
-      <div className="chat-scroll" ref={scroller} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }}>
+      {/* zoom (e não só font-size): títulos, código, tabelas e botões crescem juntos com o texto. */}
+      <div className="chat-scroll" ref={scroller} style={fontSize ? { zoom: fontSize / CHAT_FONT.base } : undefined}
+        onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40; }}>
         {status === "unsupported" && <p className="chat-empty">Este programa não grava a conversa num formato que o Zênite leia. Use a aba Terminal.</p>}
         {status === "closed" && <p className="chat-empty">O terminal está fechado.</p>}
         {status === "waiting" && <p className="chat-empty">Mande a primeira mensagem: a conversa aparece aqui assim que o {agentName} começar a responder.</p>}
@@ -496,6 +518,7 @@ export function ChatView({ id, kind, agentName, theme }: { id: string; kind: Age
         <div className="chat-input">
           <button className="chat-plus" title="Anexar arquivo, imagem, vídeo ou pasta" aria-label="Anexar" aria-expanded={menu === "add"} onClick={() => setMenu(menu === "add" ? null : "add")}><Paperclip size={16} /></button>
           <textarea ref={textarea} value={text} rows={Math.min(6, Math.max(1, text.split("\n").length))} placeholder="Mensagem…  ( / para comandos )"
+            style={fontSize ? { fontSize } : undefined}
             onChange={(e) => { setText(e.target.value); setSlashIndex(0); }}
             onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void fromFiles(e.clipboardData.files); } }}
             onKeyDown={(e) => {

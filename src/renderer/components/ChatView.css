@@ -442,3 +442,9 @@
 /* Menu do clipe (Arquivo, Imagem, Vídeo, Pasta) e o clipe redondo. */
 .chat-menu.attach { min-width: 200px; }
 .chat-plus { border: 1px solid var(--chat-line); }
+/* Tamanho da letra do chat, no topo do menu do astro. */
+.chat-font-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 0 6px; border-bottom: 1px solid var(--chat-line); }
+.chat-font-controls { display: inline-flex; align-items: center; gap: 2px; }
+.chat-menu.theme .chat-font-controls button { justify-content: center; min-width: 34px; padding: 4px 8px; font-weight: 600; }
+.chat-menu.theme .chat-font-controls button:disabled { opacity: 0.35; cursor: default; }
+.chat-menu.theme .chat-font-controls .chat-font-size { min-width: 52px; font-weight: 500; color: var(--chat-muted); font-variant-numeric: tabular-nums; }
