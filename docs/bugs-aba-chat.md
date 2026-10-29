@@ -10,7 +10,16 @@ Arquivos principais: `src/renderer/components/ChatView.tsx`, `ChatView.css`,
 
 ## Alta: atrapalham o uso
 
-### 1. A barra de opções do card cobre o campo de mensagem
+Os cinco foram corrigidos e conferidos ao vivo:
+- **1:** o campo sobe quando a barra está por cima e continua clicável.
+- **2:** a pergunta assíncrona do Codex fica aberta e é respondida com uma mensagem.
+- **3:** um cartão só, com "Outra resposta…".
+- **4:** a régua sai da opção.
+- **5:** a tabela rola para o lado.
+
+Os blocos de código e as tabelas também ganharam botão de copiar, e cada resposta ganhou "Copiar resposta".
+
+### 1. A barra de opções do card cobre o campo de mensagem — corrigido
 - **Onde:** card aberto e selecionado (visão focada). A barra "Editar · Reload · Sol · Constelação…"
   fica por cima do campo "Envie uma mensagem…".
 - **Prova:** `document.elementFromPoint` no centro, na esquerda e na direita do campo devolve
@@ -19,7 +28,7 @@ Arquivos principais: `src/renderer/components/ChatView.tsx`, `ChatView.css`,
 - **Correção sugerida:** no modo Chat, subir a barra para cima do card (ou para fora dele), ou
   reservar espaço embaixo do chat quando a barra está visível.
 
-### 2. Pergunta do Codex aparece como já respondida
+### 2. Pergunta do Codex aparece como já respondida — corrigido
 - **Onde:** Codex, ferramenta `request_user_input_async`.
 - **O que acontece:** a chamada é assíncrona; o Codex grava o `function_call_output` na hora e não
   abre menu na tela. O chat marca a pergunta como respondida (cinza, botões desligados) sem a
@@ -28,7 +37,7 @@ Arquivos principais: `src/renderer/components/ChatView.tsx`, `ChatView.css`,
   quando chegar a próxima mensagem da pessoa. O clique na opção deve **enviar o texto** da opção
   (`composer.send`), porque não há menu para `composer.choose`.
 
-### 3. A mesma pergunta aparece duas vezes
+### 3. A mesma pergunta aparece duas vezes — corrigido
 - **Onde:** Claude (`AskUserQuestion`) e Antigravity (`ask_question`).
 - **O que acontece:** aparece o cartão da pergunta (lido do arquivo) e logo abaixo
   "Esperando sua escolha no terminal" com as mesmas opções (lidas da tela).
@@ -36,14 +45,14 @@ Arquivos principais: `src/renderer/components/ChatView.tsx`, `ChatView.css`,
   cartão só: texto da pergunta do arquivo, botões do menu da tela. As opções extras do CLI
   ("Type something", "Chat about this", "Write-in…") viram "Outra resposta", que foca o campo.
 
-### 4. Opção de menu com lixo de régua
+### 4. Opção de menu com lixo de régua — corrigido
 - **Onde:** menu do `AskUserQuestion` do Claude.
 - **O que acontece:** a opção 4 vem como `4. Type something. ────────…` e o botão fica enorme, com a
   régua dentro.
 - **Correção sugerida:** no `parseMenu`, tirar caracteres de desenho de caixa (`─━═│`) do texto da
   opção.
 
-### 5. Tabela larga quebra palavras no meio
+### 5. Tabela larga quebra palavras no meio — corrigido
 - **Onde:** os três agentes, tabela de 8 colunas.
 - **O que acontece:** "Rec / urso", "Identificaçã / o", "Ren / deri / zaçã / o". A tabela encolhe
   em vez de rolar para o lado.

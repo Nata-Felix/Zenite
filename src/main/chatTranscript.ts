@@ -47,12 +47,17 @@ function pushUser(state: ParseState, text: string, images = 0) {
   const clean = text.replace(/<\/?pasted_content[^>]*>/g, "").trim();
   if (!clean && !images) return;
   if (/^\[Zênite\b|^\[Z.nite\s/.test(clean)) push(state, { kind: "note", text: short(clean.split("\n")[0].replace(/^\[|\]$/g, ""), 120) });
-  else push(state, { kind: "user", text: clean, images });
+  else {
+    // Mensagem da pessoa: qualquer pergunta que ainda estava aberta foi respondida (ou deixada de lado).
+    for (const item of state.items) if (item.kind === "question") item.answered = true;
+    push(state, { kind: "user", text: clean, images });
+  }
 }
 
-function question(state: ParseState, callId: string, questions: ChatQuestion[]) {
+/** callId vazio: a pergunta não espera resultado de ferramenta e só fecha com a próxima mensagem. */
+function question(state: ParseState, callId: string, questions: ChatQuestion[], answerBy: "menu" | "text" = "menu") {
   if (!questions.length) return;
-  const item = push(state, { kind: "question", questions, answered: false });
+  const item = push(state, { kind: "question", questions, answered: false, answerBy });
   if (callId) state.calls.set(callId, item);
 }
 
@@ -138,7 +143,9 @@ export function parseCodex(state: ParseState, o: any) {
     const args = json(p.arguments ?? p.input);
     if (/^request_user_input/.test(name)) {
       const qs = (args?.questions ?? []).map((q: any) => ({ question: str(q.title ?? q.question), options: (q.options ?? []).map((x: any) => str(x?.label ?? x)), multi: !!q.multi_select }));
-      question(state, str(p.call_id), qs);
+      // A versão assíncrona devolve o resultado na hora e não abre menu: responde-se com uma mensagem.
+      const async = name.endsWith("_async");
+      question(state, async ? "" : str(p.call_id), qs, async ? "text" : "menu");
       return;
     }
     // O exec do Codex é um trecho de código: mostra o primeiro comando de dentro dele.

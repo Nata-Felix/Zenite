@@ -111,7 +111,8 @@ export function parseMenu(screen: string): { items: MenuItem[]; footer: string }
     // rótulos embaixo dele) não são opções.
     const slider = (l?: string) => !!l && /[◂▸]/.test(l);
     if (/^\s*[↑↓]\s+\d+\s+more/i.test(line) || /^\s*search:/i.test(line) || /^[\s─━]+$/.test(line) || slider(line) || slider(lines[i - 1])) continue;
-    items.unshift({ text: line.replace(MARK, "").trim(), selected: MARK.test(line) });
+    // Réguas de desenho de caixa coladas na opção ("4. Type something. ────") não fazem parte do texto.
+    items.unshift({ text: line.replace(MARK, "").replace(/\s*[─━═│┃╭╮╰╯]{2,}.*$/, "").trim(), selected: MARK.test(line) });
     if (items.length > 60) break;
   }
   // Nos menus numerados, descrições podem quebrar em outra linha recuada. Elas não são opções.

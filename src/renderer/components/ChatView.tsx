@@ -102,6 +102,48 @@ function group(items: ChatItem[]): Row[] {
   return rows;
 }
 
+const COPY_ICON = '<svg class="i-copy" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg class="i-done" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const copyButton = (label: string) => `<div class="chat-block-bar"><span>${label}</span><button type="button" class="chat-copy" title="Copiar" aria-label="Copiar">${COPY_ICON}</button></div>`;
+
+/** Blocos de código e tabelas ganham uma barra com o nome e o botão de copiar. */
+function withCopyButtons(html: string): string {
+  return html
+    .replace(/<pre>(\s*<code(?: class="language-([\w+#-]+)")?)/g, (_m, code: string, lang?: string) => `<div class="chat-block code">${copyButton(lang ?? "código")}<pre>${code}`)
+    .replace(/<\/pre>/g, "</pre></div>")
+    .replace(/<table>/g, `<div class="chat-block table">${copyButton("tabela")}<div class="chat-table-scroll"><table>`)
+    .replace(/<\/table>/g, "</table></div></div>");
+}
+
+async function copyText(text: string, button: HTMLElement) {
+  try { await navigator.clipboard.writeText(text); } catch { return; }
+  button.classList.add("copied");
+  button.setAttribute("aria-label", "Copiado");
+  setTimeout(() => { button.classList.remove("copied"); button.setAttribute("aria-label", "Copiar"); }, 1400);
+}
+
+/** Tabela copiada como texto separado por tabulação: cola certinho em planilhas. */
+const tableText = (table: HTMLTableElement) => [...table.rows].map((r) => [...r.cells].map((c) => c.innerText.trim()).join("\t")).join("\n");
+
+function AssistantMessage({ text, who, children }: { text: string; who?: string; children?: React.ReactNode }) {
+  // Sanitizado pelo DOMPurify em renderMarkdown; as barras de copiar são marcação nossa.
+  const html = useMemo(() => withCopyButtons(renderMarkdown(text)), [text]);
+  return (
+    <div className="chat-agent">
+      {who && <span className="chat-who">{who}</span>}
+      <div className="chat-markdown" dangerouslySetInnerHTML={{ __html: html }} onClick={(e) => {
+        const button = (e.target as HTMLElement).closest<HTMLElement>(".chat-copy");
+        if (!button) return openLinkFromMarkdown(e);
+        const block = button.closest(".chat-block");
+        const table = block?.querySelector("table");
+        void copyText(table ? tableText(table) : (block?.querySelector("pre")?.innerText ?? "").replace(/\n$/, ""), button);
+      }} />
+      <button type="button" className="chat-copy chat-copy-all" title="Copiar a resposta (markdown)" aria-label="Copiar a resposta"
+        onClick={(e) => void copyText(text, e.currentTarget)} dangerouslySetInnerHTML={{ __html: `${COPY_ICON}<span>Copiar resposta</span>` }} />
+      {children}
+    </div>
+  );
+}
+
 function Actions({ tools }: { tools: Extract<ChatItem, { kind: "tool" }>[] }) {
   const [open, setOpen] = useState(false);
   return (
@@ -131,7 +173,26 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
   const [menu, setMenu] = useState<"add" | "theme" | null>(null);
   const [slashIndex, setSlashIndex] = useState(0);
   const scroller = useRef<HTMLDivElement>(null);
+  const compose = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const [lift, setLift] = useState(0);
+
+  // A barra de opções do elemento selecionado fica no rodapé da tela e pode cobrir o campo de
+  // mensagem (card focado, zoom, card alto): o campo sobe o quanto for preciso para ficar clicável.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const el = compose.current;
+      const bar = document.querySelector(".node-options-panel")?.getBoundingClientRect();
+      if (!el) return;
+      const box = el.getBoundingClientRect();
+      const scale = el.offsetHeight ? box.height / el.offsetHeight : 1; // zoom do canvas
+      // A caixa do campo termina sempre no pé do chat; a folga só empurra o campo para cima dentro dela.
+      const covered = !!bar && bar.top < box.bottom && bar.bottom > box.top && bar.left < box.right && bar.right > box.left;
+      const next = covered ? Math.ceil((box.bottom - bar.top) / scale + 10) : 0;
+      setLift((now) => (Math.abs(now - next) > 2 ? next : now));
+    }, 250);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -204,6 +265,15 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
   const status = snap?.status;
   const lastAssistant = [...(snap?.items ?? [])].reverse().find((i) => i.kind === "assistant");
   const pendingQuestion = snap?.items.some((i) => i.kind === "question" && !i.answered);
+  const openQuestion = [...(snap?.items ?? [])].reverse().find((i): i is Extract<ChatItem, { kind: "question" }> => i.kind === "question" && !i.answered && i.answerBy !== "text");
+  const screenChoices = (snap?.choices ?? []).map((raw) => {
+    const label = raw.replace(/^\d+\.\s*/, "").trim();
+    // Saídas do próprio CLI para responder com texto livre.
+    return { raw, label, other: /^(type something|chat about this|write-in|other|outra)/i.test(label) };
+  });
+  const merged = !!openQuestion && screenChoices.length > 0;
+  const textarea = useRef<HTMLTextAreaElement>(null);
+  const focusInput = () => textarea.current?.focus();
 
   return (
     <div className={`chat-view chat-theme-${theme} nodrag nowheel`}
@@ -245,43 +315,51 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
           if (item.kind === "tool") return null;
           if (item.kind === "note") return <div key={item.id} className="chat-note"><small>Zênite</small><span>{item.text}</span></div>;
           if (item.kind === "question") {
+            const byText = item.answerBy === "text";
+            // A pergunta aberta e o menu na tela são a mesma coisa: um cartão só, com os botões do menu.
+            const menu = item === openQuestion && merged ? screenChoices : null;
             return (
               <div key={item.id} className={`chat-question${item.answered ? " answered" : ""}`}>
                 {item.questions.map((q, qi) => (
                   <div key={qi}>
                     <p>{q.question}</p>
                     <div className="chat-options">
-                      {q.options.map((o) => <button key={o} disabled={item.answered || qi > 0} onClick={() => void choose(o)}>{o}</button>)}
+                      {qi === 0 && menu
+                        ? menu.filter((c) => !c.other || c === menu.find((x) => x.other)).map((c) => c.other
+                          ? <button key={c.raw} className="other" title={c.label} onClick={() => void choose(c.raw).then(focusInput)}>Outra resposta…</button>
+                          : <button key={c.raw} onClick={() => void choose(c.raw)}>{c.label}</button>)
+                        : q.options.map((o) => (
+                          <button key={o} disabled={item.answered || (!byText && qi > 0) || sending}
+                            onClick={() => void (byText ? deliver(item.questions.length > 1 ? `${q.question} ${o}` : o) : choose(o))}>{o}</button>
+                        ))}
                     </div>
                   </div>
                 ))}
-                {!item.answered && item.questions.length > 1 && <small className="chat-hint">As próximas perguntas aparecem depois da primeira resposta.</small>}
+                {!item.answered && !byText && item.questions.length > 1 && <small className="chat-hint">As próximas perguntas aparecem depois da primeira resposta.</small>}
+                {!item.answered && byText && <small className="chat-hint">Clique numa opção ou escreva a resposta no campo abaixo.</small>}
               </div>
             );
           }
           return (
-            <div key={item.id} className="chat-agent">
-              {opens && <span className="chat-who">{agentName}</span>}
-              {/* Sanitizado pelo DOMPurify em renderMarkdown. */}
-              <div className="chat-markdown" onClick={openLinkFromMarkdown} dangerouslySetInnerHTML={{ __html: renderMarkdown(item.text) }} />
+            <AssistantMessage key={item.id} text={item.text} who={opens ? agentName : undefined}>
               {item.options && item === lastAssistant && !snap?.working && (
                 <div className="chat-options">
                   {item.options.map((o) => <button key={o.key} disabled={sending} onClick={() => void deliver(o.key)}><b>{o.key}</b> {o.label}</button>)}
                 </div>
               )}
-            </div>
+            </AssistantMessage>
           );
         })}
         {snap?.working && !pendingQuestion && <div className="chat-working"><span /><span /><span /> trabalhando</div>}
-        {!!snap?.choices.length && (
+        {screenChoices.length > 0 && !merged && (
           <div className="chat-question screen">
             <p>Esperando sua escolha no terminal</p>
-            <div className="chat-options">{snap.choices.map((c) => <button key={c} onClick={() => void choose(c)}>{c}</button>)}</div>
+            <div className="chat-options">{screenChoices.map((c) => <button key={c.raw} onClick={() => void choose(c.raw)}>{c.raw}</button>)}</div>
           </div>
         )}
       </div>
 
-      <div className="chat-compose">
+      <div className="chat-compose" ref={compose} style={lift ? { paddingBottom: 14 + lift } : undefined}>
         {slash.length > 0 && (
           <div className="chat-menu slash" role="listbox">
             {slash.map((c, i) => (
@@ -311,7 +389,7 @@ export function ChatView({ id, kind, agentName, theme, onTheme }: { id: string; 
         {error && <p className="chat-error" role="alert">{error}</p>}
         <div className="chat-input">
           <button className="chat-plus" title="Anexar" aria-label="Anexar" aria-expanded={menu === "add"} onClick={() => setMenu(menu === "add" ? null : "add")}><Plus size={16} /></button>
-          <textarea value={text} rows={Math.min(6, Math.max(1, text.split("\n").length))} placeholder="Envie uma mensagem…  ( / para comandos )"
+          <textarea ref={textarea} value={text} rows={Math.min(6, Math.max(1, text.split("\n").length))} placeholder="Envie uma mensagem…  ( / para comandos )"
             onChange={(e) => { setText(e.target.value); setSlashIndex(0); }}
             onPaste={(e) => { if (e.clipboardData.files.length) { e.preventDefault(); void fromFiles(e.clipboardData.files); } }}
             onKeyDown={(e) => {

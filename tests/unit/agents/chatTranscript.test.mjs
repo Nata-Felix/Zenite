@@ -57,11 +57,23 @@ test("Codex: ignora instruções injetadas, junta comando do exec e marca fim do
   assert.deepEqual(withOptions(s.items).at(-1).options.map((o) => o.key), ["1", "2"]);
 });
 
-test("Codex: request_user_input vira pergunta e fica respondida com a saída", () => {
+test("Codex: pergunta assíncrona se responde por texto e só fecha com a próxima mensagem", () => {
   const s = run("codex", [
     { type: "response_item", payload: { type: "function_call", name: "request_user_input_async", call_id: "q", arguments: JSON.stringify({ questions: [{ title: "Qual?", options: ["Um", "Dois"] }] }) } },
+    // O Codex devolve o resultado na hora, sem a pessoa ter escolhido.
+    { type: "response_item", payload: { type: "function_call_output", call_id: "q", output: "aguardando" } },
   ]);
+  assert.equal(s.items[0].answerBy, "text");
   assert.equal(s.items[0].answered, false);
+  PARSERS.codex(s, { type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "Um" }] } });
+  assert.equal(s.items[0].answered, true);
+});
+
+test("Codex: pergunta síncrona fecha com o resultado da ferramenta", () => {
+  const s = run("codex", [
+    { type: "response_item", payload: { type: "function_call", name: "request_user_input", call_id: "q", arguments: JSON.stringify({ questions: [{ title: "Qual?", options: ["Um", "Dois"] }] }) } },
+  ]);
+  assert.equal(s.items[0].answerBy, "menu");
   PARSERS.codex(s, { type: "response_item", payload: { type: "function_call_output", call_id: "q", output: "Um" } });
   assert.equal(s.items[0].answered, true);
 });

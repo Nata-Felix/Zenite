@@ -24,7 +24,8 @@ export type ChatItem =
   | { id: string; kind: "user"; text: string; images: number }
   | { id: string; kind: "assistant"; text: string; options?: { key: string; label: string }[] }
   | { id: string; kind: "tool"; name: string; label: string }
-  | { id: string; kind: "question"; questions: ChatQuestion[]; answered: boolean }
+  /** answerBy "text": o CLI não abre menu (pergunta assíncrona do Codex); a resposta vai como mensagem. */
+  | { id: string; kind: "question"; questions: ChatQuestion[]; answered: boolean; answerBy?: "menu" | "text" }
   | { id: string; kind: "note"; text: string };
 
 export interface ChatSnapshot {

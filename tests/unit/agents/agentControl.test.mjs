@@ -181,3 +181,16 @@ test("parseMenu: opção numerada que quebrou a linha sem recuo continua no menu
     "4. No, cancel",
   ]);
 });
+
+test("parseMenu: régua colada na opção não entra no texto (Type something do Claude)", () => {
+  const screen = [
+    "Qual cor você prefere?",
+    "❯ 1. Azul",
+    "  2. Verde",
+    "  3. Roxo",
+    "  4. Type something. ────────────────────────────────────────",
+    "  5. Chat about this",
+    "Enter to select · ↑/↓ to navigate · Esc to cancel",
+  ].join("\n");
+  assert.deepEqual(m.parseMenu(screen).items.map((i) => i.text), ["1. Azul", "2. Verde", "3. Roxo", "4. Type something.", "5. Chat about this"]);
+});
